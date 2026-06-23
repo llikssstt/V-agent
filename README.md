@@ -1,12 +1,12 @@
-# 基于 Live2D 与大语言模型的生活陪伴型虚拟角色 Agent
+# 基于大语言模型的生活陪伴型网页 Agent
 
-这是一个《自然语言处理》课程大作业 MVP。项目实现了原创虚拟陪伴 Agent“小熙”，支持多轮文字聊天、两阶段 LLM 决策、emotion 状态输出、长期记忆、工具调用和可替换的 Live2D 展示接口。
+这是一个《自然语言处理》课程大作业 MVP。项目实现了原创网页陪伴 Agent“LunaClaw”，支持多轮文字聊天、两阶段 LLM 决策、emotion 状态输出、长期记忆和工具调用。
 
 项目默认支持 mock 模式。没有 API Key 时也能启动、聊天和演示完整主链路。
 
 ## 功能列表
 
-- 原创虚拟角色“小熙”人格设定
+- 原创网页陪伴 Agent“LunaClaw”人格设定
 - FastAPI REST 后端
 - Vue 3 + Vite 前端
 - Planner + Responder 两阶段 Agent 流程
@@ -15,7 +15,7 @@
 - JSON 文件长期记忆
 - 时间、计算器、待办、学习计划四类工具
 - emotion 驱动的角色状态展示
-- 可替换的 `Live2DViewer` 占位组件
+- 状态面板展示 emotion、工具和记忆动作
 - 测试用例和 1 分钟演示脚本
 
 ## 技术栈
@@ -103,15 +103,33 @@ $env:LLM_MODEL="gpt-4o-mini"
 - 待办工具
 - 学习计划工具
 
-## Live2D 替换说明
+真实 API 配置应写入 `backend/.env`，不要写入 `.env.example`。`.env.example` 只保留空模板。
 
-当前 `frontend/src/components/Live2DViewer.vue` 是占位组件，保留了 `modelPath` 参数：
+## Memory RAG 模块
 
-```vue
-<Live2DViewer :emotion="status.emotion" model-path="/models/xiaoxi.model3.json" />
+项目现在包含本地语义 Memory RAG。后端使用本地 embedding 模型：
+
+```text
+C:\Users\Likssstt\Documents\Playground\course_rag_system\data\models\bge-small-zh-v1.5
 ```
 
-后续接入真实 Live2D 时，可以在该组件内部替换渲染逻辑，保持外部 props 不变。前端仍只根据后端返回的 `emotion` 渲染状态。
+记忆系统包含：
+
+- `backend/storage/memory.json`：长期结构化记忆
+- `backend/storage/user_profile.json`：用户画像
+- `backend/storage/conversations.db`：历史对话和记忆向量
+- `backend/storage/memory_logs.jsonl`：记忆操作日志
+
+主要接口：
+
+- `GET /memory`
+- `POST /memory`
+- `PUT /memory/{memory_id}`
+- `DELETE /memory/{memory_id}`
+- `GET /memory/search?query=xxx`
+- `GET /memory/logs`
+
+聊天接口 `/chat` 会自动保存历史对话、检索相关记忆，并返回 `retrieved_memories` 供前端展示。
 
 ## API 接口
 
@@ -175,7 +193,6 @@ npm run build
 
 ## 后续优化方向
 
-- 接入真实 Live2D 模型
 - 增加 TTS
 - 增加 ASR
 - 增加口型同步
@@ -183,4 +200,3 @@ npm run build
 - 增加更丰富的工具系统
 - 接入直播弹幕互动
 - 增加人格一致性评估
-

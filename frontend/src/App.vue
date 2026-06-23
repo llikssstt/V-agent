@@ -1,20 +1,20 @@
 <template>
   <main class="app-shell">
     <section class="stage">
-      <Live2DViewer :emotion="status.emotion" model-path="/models/xiaoxi.model3.json" />
       <StatusPanel :status="status" />
     </section>
 
     <section class="workspace">
-      <ChatBox
-        :messages="messages"
-        :loading="loading"
-        @send="handleSend"
-      />
+      <ChatBox :messages="messages" :loading="loading" @send="handleSend" />
     </section>
 
     <aside class="side-panels">
-      <MemoryPanel :items="memories" @refresh="loadPanels" @delete="handleDeleteMemory" />
+      <MemoryPanel
+        :items="memories"
+        @refresh="loadPanels"
+        @delete="handleDeleteMemory"
+        @create="handleCreateMemory"
+      />
       <TodoPanel :items="todos" @refresh="loadPanels" />
     </aside>
   </main>
@@ -22,9 +22,8 @@
 
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
-import { deleteMemory, fetchMemory, fetchTodos, sendChat } from './api/chat'
+import { createMemory, deleteMemory, fetchMemory, fetchTodos, sendChat } from './api/chat'
 import ChatBox from './components/ChatBox.vue'
-import Live2DViewer from './components/Live2DViewer.vue'
 import MemoryPanel from './components/MemoryPanel.vue'
 import StatusPanel from './components/StatusPanel.vue'
 import TodoPanel from './components/TodoPanel.vue'
@@ -32,7 +31,8 @@ import TodoPanel from './components/TodoPanel.vue'
 const messages = ref([
   {
     role: 'assistant',
-    content: '我是小熙，屏幕里的常驻嘉宾。你可以先问我是谁，或者让我帮你安排今晚两小时。'
+    content: '我是 LunaClaw，网页里的常驻陪伴 Agent。你可以先问我是谁，或者让我帮你安排今晚两小时。',
+    retrieved_memories: []
   }
 ])
 const memories = ref([])
@@ -46,17 +46,22 @@ const status = reactive({
 })
 
 async function handleSend(text) {
-  messages.value.push({ role: 'user', content: text })
+  messages.value.push({ role: 'user', content: text, retrieved_memories: [] })
   loading.value = true
   try {
     const result = await sendChat(text)
-    messages.value.push({ role: 'assistant', content: result.reply })
+    messages.value.push({
+      role: 'assistant',
+      content: result.reply,
+      retrieved_memories: result.retrieved_memories || []
+    })
     Object.assign(status, result)
     await loadPanels()
   } catch (error) {
     messages.value.push({
       role: 'assistant',
-      content: '后端暂时没接上。先确认 FastAPI 是否在 http://127.0.0.1:8000 运行。'
+      content: '后端暂时没接上。先确认 FastAPI 是否在 http://127.0.0.1:8000 运行。',
+      retrieved_memories: []
     })
     Object.assign(status, {
       emotion: 'thinking',
@@ -85,6 +90,10 @@ async function handleDeleteMemory(memoryId) {
   await loadPanels()
 }
 
+async function handleCreateMemory(payload) {
+  await createMemory(payload)
+  await loadPanels()
+}
+
 onMounted(loadPanels)
 </script>
-

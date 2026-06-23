@@ -33,7 +33,7 @@ button:disabled {
 
 .app-shell {
   display: grid;
-  grid-template-columns: minmax(260px, 0.85fr) minmax(380px, 1.45fr) minmax(240px, 0.75fr);
+  grid-template-columns: minmax(220px, 0.65fr) minmax(420px, 1.55fr) minmax(240px, 0.8fr);
   min-height: 100vh;
   gap: 16px;
   padding: 16px;
@@ -52,7 +52,6 @@ button:disabled {
   gap: 16px;
 }
 
-.live2d-panel,
 .chat-box,
 .panel {
   background: rgba(255, 255, 255, 0.88);
@@ -61,72 +60,9 @@ button:disabled {
   box-shadow: 0 12px 30px rgba(33, 42, 62, 0.08);
 }
 
-.live2d-panel {
-  min-height: 420px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  overflow: hidden;
-  padding: 18px;
-  position: relative;
-}
-
-.live2d-panel::before {
-  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 22%, white), transparent 60%);
-  content: "";
-  inset: 0;
-  position: absolute;
-}
-
-.live2d-panel > * {
-  position: relative;
-}
-
-.viewer-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.viewer-header span {
-  font-size: 26px;
-  font-weight: 800;
-}
-
-.viewer-header small,
-.live2d-panel code,
 .empty,
 .compact-list small {
   color: #6c7584;
-}
-
-.avatar-orbit {
-  align-items: center;
-  align-self: center;
-  aspect-ratio: 1;
-  background: #fff;
-  border: 8px solid color-mix(in srgb, var(--accent) 52%, white);
-  border-radius: 50%;
-  display: flex;
-  justify-content: center;
-  width: min(72%, 260px);
-}
-
-.avatar-face {
-  color: var(--accent);
-  font-family: Consolas, monospace;
-  font-size: clamp(42px, 7vw, 78px);
-  font-weight: 800;
-}
-
-.viewer-state {
-  display: grid;
-  gap: 8px;
-}
-
-.viewer-state strong {
-  color: var(--accent);
-  font-size: 22px;
 }
 
 .chat-box {
@@ -196,6 +132,20 @@ h2 {
   color: #fff;
 }
 
+.memory-used {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.memory-used small {
+  background: #fff7d8;
+  border: 1px solid #f0dc94;
+  border-radius: 6px;
+  color: #6f5b18;
+  padding: 3px 6px;
+}
+
 .input-box {
   border-top: 1px solid #e3e8f1;
   display: grid;
@@ -258,6 +208,20 @@ h2 {
   padding: 0;
 }
 
+.memory-form {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.memory-form textarea,
+.memory-form select {
+  border: 1px solid #ccd5e3;
+  border-radius: 8px;
+  padding: 9px 10px;
+  width: 100%;
+}
+
 .compact-list li {
   background: #f5f7fb;
   border-radius: 8px;
@@ -279,4 +243,3 @@ h2 {
     height: 680px;
   }
 }
-

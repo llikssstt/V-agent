@@ -2,6 +2,10 @@ import json
 from pathlib import Path
 
 from agent.llm_client import LLMClient
+from agent.memory_core import MemoryCore
+from agent.memory_prompt_builder import build_memory_context
+from agent.memory_router import route_memory_intent
+from agent.memory_writer import MemoryWriter
 from agent.memory import MemoryStore
 from agent.prompt_builder import build_planner_prompt, build_responder_prompt
 from agent.response_parser import parse_planner, parse_responder
@@ -12,9 +16,11 @@ CONVERSATIONS_PATH = Path(__file__).resolve().parents[1] / "storage" / "conversa
 
 
 class AgentCore:
-    def __init__(self, llm_client=None, memory_store=None, conversations_path=CONVERSATIONS_PATH):
+    def __init__(self, llm_client=None, memory_store=None, conversations_path=CONVERSATIONS_PATH, memory_core=None):
         self.llm = llm_client or LLMClient()
         self.memory = memory_store or MemoryStore()
+        self.memory_core = memory_core or MemoryCore()
+        self.memory_writer = MemoryWriter(self.memory_core)
         self.conversations_path = Path(conversations_path)
         self.conversations_path.parent.mkdir(parents=True, exist_ok=True)
         if not self.conversations_path.exists():
@@ -22,17 +28,25 @@ class AgentCore:
 
     def chat(self, message, session_id="default"):
         clean_message = str(message or "").strip()
+        self.memory_core.save_conversation_turn(session_id, "user", clean_message)
         history = self._load_history(session_id)
         history.append({"role": "user", "content": clean_message})
         memories = self.memory.list_memories()
+        memory_route = route_memory_intent(clean_message)
+        rag_result = self.memory_core.retriever.retrieve(clean_message) if memory_route["need_retrieve"] else {"memories": [], "profile": self.memory_core.read_user_profile(), "conversation_hits": []}
+        memory_context = build_memory_context(rag_result)
 
         planner_prompt = build_planner_prompt(clean_message, history, memories)
+        if memory_context:
+            planner_prompt += "\n\n" + memory_context
         planner = parse_planner(self.llm.complete_json(planner_prompt, "planner", {"message": clean_message, "history": history, "memories": memories}))
 
-        memory_result = self._execute_memory(planner)
+        memory_result = self._execute_memory(planner, memory_route, clean_message)
         tool_result = execute_tool(planner.get("tool_call"))
 
         responder_prompt = build_responder_prompt(clean_message, history, planner, memory_result, tool_result)
+        if memory_context:
+            responder_prompt += "\n\n请优先参考以下已检索记忆，但不要编造未提供的信息：\n" + memory_context
         response = parse_responder(
             self.llm.complete_json(
                 responder_prompt,
@@ -49,10 +63,25 @@ class AgentCore:
 
         history.append({"role": "assistant", "content": response["reply"]})
         self._save_history(session_id, history[-20:])
+        self.memory_core.save_conversation_turn(session_id, "assistant", response["reply"])
+        response["retrieved_memories"] = rag_result.get("memories", [])
         return response
 
-    def _execute_memory(self, planner):
+    def _execute_memory(self, planner, memory_route=None, message=""):
+        route = memory_route or {"memory_intent": "none"}
         action = planner.get("memory_action", "none")
+        if route.get("memory_intent") == "write":
+            memory = self.memory_writer.write_from_user_message(message)
+            return {"ok": True, "action": "write", "item": memory}
+        if route.get("memory_intent") == "update":
+            updated = self.memory_writer.update_by_query(message, message)
+            return {"ok": bool(updated), "action": "update", "item": updated}
+        if route.get("memory_intent") == "delete":
+            deleted = self.memory_writer.delete_by_query(message)
+            return {"ok": True, "action": "delete", "items": deleted}
+        if route.get("memory_intent") == "retrieve":
+            items = self.memory_core.retriever.retrieve(message).get("memories", [])
+            return {"ok": True, "action": "read", "items": items}
         if action == "read":
             return {"ok": True, "action": "read", "items": self.memory.retrieve_memory(planner.get("memory_query", ""))}
         if action == "write":
@@ -83,4 +112,3 @@ class AgentCore:
         data = self._read_conversations()
         data[session_id] = history
         self._write_conversations(data)
-

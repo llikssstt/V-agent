@@ -42,13 +42,19 @@ class MemoryStore:
     def retrieve_memory(self, query, top_k=5):
         query_text = str(query or "").lower()
         terms = [part for part in query_text.replace("，", " ").replace(",", " ").split() if part]
+        query_chars = {char for char in query_text if "\u4e00" <= char <= "\u9fff"}
+        broad_memory_question = any(hint in query_text for hint in ["记得", "最近", "做什么", "什么吗"])
         scored = []
         for memory in self._read():
             content = memory.get("content", "").lower()
+            content_chars = {char for char in content if "\u4e00" <= char <= "\u9fff"}
             score = 0
             if query_text and query_text in content:
                 score += 3
             score += sum(1 for term in terms if term in content)
+            score += min(len(query_chars & content_chars), 5)
+            if broad_memory_question and memory.get("importance", 1) >= 3:
+                score += 2
             if score or not query_text:
                 scored.append((score, memory))
         scored.sort(key=lambda item: (item[0], item[1].get("importance", 1)), reverse=True)
@@ -69,4 +75,3 @@ class MemoryStore:
 
     def list_memories(self):
         return self._read()
-

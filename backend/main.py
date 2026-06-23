@@ -1,13 +1,15 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from typing import Optional
 
 from agent.agent_core import AgentCore
+from agent.memory_core import MemoryCore
 from agent.memory import MemoryStore
 from tools.todo_tool import TodoStore
 
 
-app = FastAPI(title="Xiao Xi Virtual Companion Agent")
+app = FastAPI(title="LunaClaw Companion Agent")
 
 app.add_middleware(
     CORSMiddleware,
@@ -21,6 +23,20 @@ app.add_middleware(
 class ChatRequest(BaseModel):
     message: str
     session_id: str = "default"
+
+
+class MemoryCreateRequest(BaseModel):
+    content: str
+    category: str = "user_profile"
+    importance: float = 0.7
+    source: str = "manual"
+
+
+class MemoryUpdateRequest(BaseModel):
+    content: Optional[str] = None
+    category: Optional[str] = None
+    importance: Optional[float] = None
+    status: Optional[str] = None
 
 
 @app.get("/health")
@@ -37,18 +53,53 @@ def chat(request: ChatRequest):
 
 @app.get("/memory")
 def list_memory():
-    return MemoryStore().list_memories()
+    return MemoryCore().list_memories()
+
+
+@app.post("/memory")
+def create_memory(request: MemoryCreateRequest):
+    if not request.content.strip():
+        raise HTTPException(status_code=400, detail="content is required")
+    try:
+        return MemoryCore().write_memory(request.content, request.category, request.importance, request.source)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.put("/memory/{memory_id}")
+def update_memory(memory_id: str, request: MemoryUpdateRequest):
+    try:
+        return MemoryCore().update_memory(
+            memory_id,
+            content=request.content,
+            category=request.category,
+            importance=request.importance,
+            status=request.status,
+        )
+    except KeyError:
+        raise HTTPException(status_code=404, detail="memory not found")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @app.delete("/memory/{memory_id}")
 def delete_memory(memory_id: str):
-    deleted = MemoryStore().delete_memory(memory_id)
-    if not deleted:
+    try:
+        return MemoryCore().delete_memory(memory_id)
+    except KeyError:
         raise HTTPException(status_code=404, detail="memory not found")
-    return {"ok": True}
+
+
+@app.get("/memory/search")
+def search_memory(query: str, top_k: int = 5):
+    return MemoryCore().retriever.retrieve(query, top_k=top_k)
+
+
+@app.get("/memory/logs")
+def memory_logs(limit: int = 100):
+    return MemoryCore().list_logs(limit=limit)
 
 
 @app.get("/todos")
 def list_todos():
     return TodoStore().list()
-

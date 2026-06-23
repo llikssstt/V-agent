@@ -2,7 +2,7 @@
   <div class="chat-box">
     <header>
       <div>
-        <h1>小熙虚拟陪伴 Agent</h1>
+        <h1>LunaClaw 陪伴 Agent</h1>
         <p>两阶段 LLM 决策、记忆、工具调用与 emotion 驱动展示</p>
       </div>
     </header>
@@ -22,4 +22,3 @@ defineProps({
 
 defineEmits(['send'])
 </script>
-

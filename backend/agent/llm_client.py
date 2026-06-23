@@ -4,12 +4,16 @@ import re
 
 import requests
 
+from agent.env_loader import load_env_file
+
 
 class LLMClient:
     def __init__(self):
+        load_env_file()
         self.api_key = os.getenv("LLM_API_KEY", "").strip()
         self.base_url = os.getenv("LLM_BASE_URL", "https://api.openai.com/v1").rstrip("/")
         self.model = os.getenv("LLM_MODEL", "gpt-4o-mini")
+        self.call_sources = []
 
     @property
     def mock_mode(self):
@@ -17,6 +21,7 @@ class LLMClient:
 
     def complete_json(self, prompt, stage, context):
         if self.mock_mode:
+            self.call_sources.append({"stage": stage, "source": "mock"})
             if stage == "planner":
                 return self._mock_planner(context)
             return self._mock_responder(context)
@@ -33,8 +38,10 @@ class LLMClient:
                 timeout=30,
             )
             response.raise_for_status()
+            self.call_sources.append({"stage": stage, "source": "real_api"})
             return response.json()["choices"][0]["message"]["content"]
         except Exception:
+            self.call_sources.append({"stage": stage, "source": "fallback_mock"})
             if stage == "planner":
                 return self._mock_planner(context)
             return self._mock_responder(context)
@@ -104,7 +111,7 @@ class LLMClient:
             result = tool_result.get("result", {})
             reply = f"算出来了：{result.get('expression')} = {result.get('result')}" if result.get("ok") else f"这个式子我没法安全计算：{result.get('error')}"
         elif tool_name == "time":
-            reply = f"现在是 {tool_result.get('result', {}).get('text')}，电子小熙看了一眼屏幕角落。"
+            reply = f"现在是 {tool_result.get('result', {}).get('text')}，LunaClaw 看了一眼屏幕角落。"
         elif tool_name == "todo":
             result = tool_result.get("result", {})
             if result.get("item"):
@@ -121,12 +128,12 @@ class LLMClient:
             else:
                 reply = "我这边暂时没捞到相关记忆。你可以再告诉我一次，我这次认真存档。"
         elif "你是谁" in message or "你好" in message:
-            reply = "我是小熙，屏幕里的常驻嘉宾。主要业务是陪你聊天、接住碎碎念，顺手把生活里的小麻烦拆成能处理的几块。"
+            reply = "我是 LunaClaw，屏幕里的常驻嘉宾。主要业务是陪你聊天、接住碎碎念，顺手把生活里的小麻烦拆成能处理的几块。"
             emotion = "happy"
         elif emotion == "sad":
             reply = "懂了，今日状态：灵魂在线，行动离线。先别给自己下狠判决，我们只做一个最小动作，比如把要做的东西打开，先不要求立刻起飞。"
         else:
-            reply = "收到。小熙在线接住这条消息了。你可以继续说，我会尽量把它拆成能处理的小块。"
+            reply = "收到。LunaClaw 在线接住这条消息了。你可以继续说，我会尽量把它拆成能处理的小块。"
 
         return json.dumps(
             {

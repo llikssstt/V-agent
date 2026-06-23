@@ -22,11 +22,28 @@ export function fetchMemory() {
   return request('/memory')
 }
 
+export function createMemory(payload) {
+  return request('/memory', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
+}
+
+export function updateMemory(memoryId, payload) {
+  return request(`/memory/${memoryId}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload)
+  })
+}
+
 export function deleteMemory(memoryId) {
   return request(`/memory/${memoryId}`, { method: 'DELETE' })
+}
+
+export function searchMemory(query) {
+  return request(`/memory/search?query=${encodeURIComponent(query)}`)
 }
 
 export function fetchTodos() {
   return request('/todos')
 }
-

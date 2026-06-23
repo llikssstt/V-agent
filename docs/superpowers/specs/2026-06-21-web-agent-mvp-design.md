@@ -1,12 +1,12 @@
-# Live2D Agent MVP Design
+# Web Companion Agent MVP Design
 
 ## Goal
 
-Build a runnable course MVP for an original virtual companion Agent named Xiao Xi. The system must run without an API key through mock mode, while keeping a clear path to replace mock LLM calls and the placeholder Live2D view later.
+Build a runnable course MVP for an original web companion Agent named LunaClaw. The system must run without an API key through mock mode, while keeping a clear path to replace mock LLM calls later.
 
 ## Scope
 
-The MVP includes a FastAPI backend, a Vue 3 + Vite frontend, JSON-file storage, four executable tools, long-term memory operations, and documentation for testing and a one-minute demo. It does not implement real Live2D animation, ASR, TTS, lip sync, vector search, live-stream chat, or multi-agent collaboration.
+The MVP includes a FastAPI backend, a Vue 3 + Vite frontend, JSON-file storage, four executable tools, long-term memory operations, and documentation for testing and a one-minute demo. It does not implement visual character rendering, ASR, TTS, lip sync, vector search, live-stream chat, or multi-agent collaboration.
 
 The existing root `index.html` is ignored. New application files live under `backend/`, `frontend/`, and `docs/`.
 
@@ -35,7 +35,6 @@ The frontend is a single-page Vue app. It never decides emotion, tool usage, or 
 ## Frontend Components
 
 - `frontend/src/App.vue`: page layout and shared state.
-- `Live2DViewer.vue`: replaceable character display with `modelPath` prop and emotion-driven placeholder state.
 - `ChatBox.vue`, `MessageList.vue`, `InputBox.vue`: chat workflow.
 - `StatusPanel.vue`: current `emotion`, `tool_used`, `memory_action`, `skills_used`.
 - `MemoryPanel.vue`, `TodoPanel.vue`: demo support panels.
@@ -60,4 +59,3 @@ Invalid LLM JSON or illegal enum values fall back to a safe response. Unknown to
 ## Testing
 
 Backend pytest coverage verifies `/health`, mock `/chat`, calculator safety, memory operations, todo operations, and study-plan tool execution. Frontend verification uses `npm run build`. Final smoke verification starts the backend and calls `/health` and `/chat`.
-
