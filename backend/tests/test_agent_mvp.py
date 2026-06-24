@@ -1,15 +1,16 @@
 import os
-from fastapi.testclient import TestClient
-from pathlib import Path
 import uuid
+from pathlib import Path
 
+from fastapi.testclient import TestClient
+
+from agent.env_loader import load_env_file
+from agent.llm_client import LLMClient
 from agent.memory import MemoryStore
 from main import app
 from tools.calculator_tool import calculate
 from tools.study_plan_tool import generate_study_plan
 from tools.todo_tool import TodoStore
-from agent.llm_client import LLMClient
-from agent.env_loader import load_env_file
 
 
 def local_tmp_path():
@@ -18,7 +19,8 @@ def local_tmp_path():
     return path
 
 
-def test_load_env_file_sets_missing_values(tmp_path, monkeypatch):
+def test_load_env_file_sets_missing_values(monkeypatch):
+    tmp_path = local_tmp_path()
     monkeypatch.delenv("DISABLE_DOTENV_LOAD", raising=False)
     monkeypatch.delenv("LLM_API_KEY", raising=False)
     backend_dir = tmp_path / "backend"
@@ -50,13 +52,15 @@ def test_chat_mock_returns_required_fields():
 
     assert response.status_code == 200
     data = response.json()
-    assert {"reply", "emotion", "tool_used", "skills_used", "memory_action", "retrieved_memories"}.issubset(data)
+    assert {"reply", "emotion", "tool_used", "skills_used", "memory_action", "retrieved_memories", "evolution_events", "active_skills", "evolution_summary"}.issubset(data)
     assert data["reply"]
     assert data["emotion"] in {"neutral", "happy", "sad", "thinking", "surprised", "serious"}
     assert data["tool_used"] in {"none", "time", "calculator", "todo", "study_plan"}
     assert data["memory_action"] in {"none", "read", "write", "delete"}
     assert isinstance(data["skills_used"], list)
     assert isinstance(data["retrieved_memories"], list)
+    assert isinstance(data["evolution_events"], list)
+    assert isinstance(data["active_skills"], list)
 
 
 def test_llm_client_falls_back_to_mock_when_real_api_fails(monkeypatch):

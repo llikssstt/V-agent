@@ -2,13 +2,14 @@ import json
 from pathlib import Path
 
 from agent.llm_client import LLMClient
+from agent.memory import MemoryStore
 from agent.memory_core import MemoryCore
 from agent.memory_prompt_builder import build_memory_context
 from agent.memory_router import route_memory_intent
 from agent.memory_writer import MemoryWriter
-from agent.memory import MemoryStore
 from agent.prompt_builder import build_planner_prompt, build_responder_prompt
 from agent.response_parser import parse_planner, parse_responder
+from agent.self_evolution import SelfEvolutionCore
 from tools.tool_executor import execute_tool
 
 
@@ -16,11 +17,12 @@ CONVERSATIONS_PATH = Path(__file__).resolve().parents[1] / "storage" / "conversa
 
 
 class AgentCore:
-    def __init__(self, llm_client=None, memory_store=None, conversations_path=CONVERSATIONS_PATH, memory_core=None):
+    def __init__(self, llm_client=None, memory_store=None, conversations_path=CONVERSATIONS_PATH, memory_core=None, evolution_core=None):
         self.llm = llm_client or LLMClient()
         self.memory = memory_store or MemoryStore()
         self.memory_core = memory_core or MemoryCore()
         self.memory_writer = MemoryWriter(self.memory_core)
+        self.evolution_core = evolution_core or SelfEvolutionCore(llm_client=self.llm, memory_core=self.memory_core)
         self.conversations_path = Path(conversations_path)
         self.conversations_path.parent.mkdir(parents=True, exist_ok=True)
         if not self.conversations_path.exists():
@@ -28,6 +30,9 @@ class AgentCore:
 
     def chat(self, message, session_id="default"):
         clean_message = str(message or "").strip()
+        active_skills = self.evolution_core.load_active_skills(clean_message)
+        skill_context = self.evolution_core.build_skill_context(active_skills)
+
         self.memory_core.save_conversation_turn(session_id, "user", clean_message)
         history = self._load_history(session_id)
         history.append({"role": "user", "content": clean_message})
@@ -39,7 +44,9 @@ class AgentCore:
         planner_prompt = build_planner_prompt(clean_message, history, memories)
         if memory_context:
             planner_prompt += "\n\n" + memory_context
-        planner = parse_planner(self.llm.complete_json(planner_prompt, "planner", {"message": clean_message, "history": history, "memories": memories}))
+        if skill_context:
+            planner_prompt += "\n\n" + skill_context
+        planner = parse_planner(self.llm.complete_json(planner_prompt, "planner", {"message": clean_message, "history": history, "memories": memories, "active_skills": active_skills}))
 
         memory_result = self._execute_memory(planner, memory_route, clean_message)
         tool_result = execute_tool(planner.get("tool_call"))
@@ -47,6 +54,8 @@ class AgentCore:
         responder_prompt = build_responder_prompt(clean_message, history, planner, memory_result, tool_result)
         if memory_context:
             responder_prompt += "\n\n请优先参考以下已检索记忆，但不要编造未提供的信息：\n" + memory_context
+        if skill_context:
+            responder_prompt += "\n\n请参考以下已启用的可解释优化 Skill，但不要声称自己有自我意识：\n" + skill_context
         response = parse_responder(
             self.llm.complete_json(
                 responder_prompt,
@@ -57,6 +66,7 @@ class AgentCore:
                     "planner": planner,
                     "memory_result": memory_result,
                     "tool_result": tool_result,
+                    "active_skills": active_skills,
                 },
             )
         )
@@ -65,6 +75,11 @@ class AgentCore:
         self._save_history(session_id, history[-20:])
         self.memory_core.save_conversation_turn(session_id, "assistant", response["reply"])
         response["retrieved_memories"] = rag_result.get("memories", [])
+        evolution = self.evolution_core.reflect_after_turn(clean_message, response["reply"], response["retrieved_memories"], active_skills)
+        response["evolution_events"] = evolution.get("evolution_events", [])
+        response["evolution_summary"] = evolution.get("evolution_summary", "")
+        response["active_skills"] = active_skills or evolution.get("active_skills", [])
+        response["evolution_count"] = len(response["evolution_events"])
         return response
 
     def _execute_memory(self, planner, memory_route=None, message=""):

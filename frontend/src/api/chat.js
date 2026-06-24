@@ -44,6 +44,18 @@ export function searchMemory(query) {
   return request(`/memory/search?query=${encodeURIComponent(query)}`)
 }
 
+export function fetchEvolutionLogs() {
+  return request('/evolution/logs')
+}
+
+export function fetchEvolutionSkills() {
+  return request('/evolution/skills')
+}
+
+export function rollbackEvolution(operationId) {
+  return request(`/evolution/rollback/${operationId}`, { method: 'POST' })
+}
+
 export function fetchTodos() {
   return request('/todos')
 }

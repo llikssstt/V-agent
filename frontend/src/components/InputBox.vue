@@ -4,7 +4,7 @@
       v-model="text"
       :disabled="disabled"
       rows="2"
-      placeholder="和 LunaClaw 说点什么，比如：记住我最近在做 NLP 课程陪伴 Agent"
+      placeholder="和 LunaClaw 说点什么，比如：我压力好大，今晚不想学了"
     />
     <button type="submit" :disabled="disabled || !text.trim()">发送</button>
   </form>

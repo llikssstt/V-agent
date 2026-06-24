@@ -2,6 +2,8 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .pytest_tmp/
+pytest-of-Likssstt/
+%SystemDrive%/
 .integration_tmp/
 .venv/
 venv/
@@ -14,4 +16,7 @@ backend/storage/*.db
 backend/storage/*.db-shm
 backend/storage/*.db-wal
 backend/storage/memory_logs.jsonl
+backend/storage/evolution_log.jsonl
+backend/storage/evolution_state.json
+backend/generated_skills/
 .env

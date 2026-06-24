@@ -91,6 +91,12 @@ h2 {
   font-size: 16px;
 }
 
+h3 {
+  color: #465266;
+  font-size: 13px;
+  margin: 14px 0 0;
+}
+
 .chat-box header p {
   color: #677181;
   margin-top: 6px;
@@ -132,18 +138,34 @@ h2 {
   color: #fff;
 }
 
-.memory-used {
+.memory-used,
+.evolution-used,
+.skill-used {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
 
-.memory-used small {
+.memory-used small,
+.evolution-used small,
+.skill-used small {
   background: #fff7d8;
   border: 1px solid #f0dc94;
   border-radius: 6px;
   color: #6f5b18;
   padding: 3px 6px;
+}
+
+.evolution-used small {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #065f46;
+}
+
+.skill-used small {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+  color: #3730a3;
 }
 
 .input-box {
@@ -228,6 +250,12 @@ h2 {
   display: grid;
   gap: 6px;
   padding: 10px;
+}
+
+.evolution-panel section + section {
+  border-top: 1px solid #e3e8f1;
+  margin-top: 14px;
+  padding-top: 4px;
 }
 
 .empty {

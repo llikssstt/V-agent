@@ -18,6 +18,14 @@
         <dt>skills_used</dt>
         <dd>{{ status.skills_used.join(', ') }}</dd>
       </div>
+      <div>
+        <dt>active_skills</dt>
+        <dd>{{ (status.active_skills || []).map((skill) => skill.name || skill.skill_id).join(', ') || 'none' }}</dd>
+      </div>
+      <div>
+        <dt>evolution_count</dt>
+        <dd>{{ status.evolution_count || 0 }}</dd>
+      </div>
     </dl>
   </div>
 </template>
@@ -27,4 +35,3 @@ defineProps({
   status: { type: Object, required: true }
 })
 </script>
-

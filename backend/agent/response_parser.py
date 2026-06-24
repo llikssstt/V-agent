@@ -4,7 +4,7 @@ from agent.emotion import normalize_emotion, normalize_memory_action, normalize_
 
 
 FALLBACK_RESPONSE = {
-    "reply": "我这边刚才有点卡壳了，但我还在。你可以再说一遍，我继续接住。",
+    "reply": "我这边刚才有点卡住了，但我还在。你可以再说一遍，我继续接住。",
     "emotion": "thinking",
     "tool_used": "none",
     "skills_used": ["persona_skill"],
@@ -73,4 +73,3 @@ def parse_responder(value):
         "skills_used": data["skills_used"],
         "memory_action": data["memory_action"],
     }
-

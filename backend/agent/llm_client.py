@@ -22,9 +22,7 @@ class LLMClient:
     def complete_json(self, prompt, stage, context):
         if self.mock_mode:
             self.call_sources.append({"stage": stage, "source": "mock"})
-            if stage == "planner":
-                return self._mock_planner(context)
-            return self._mock_responder(context)
+            return self._mock(stage, context)
         try:
             response = requests.post(
                 f"{self.base_url}/chat/completions",
@@ -42,13 +40,17 @@ class LLMClient:
             return response.json()["choices"][0]["message"]["content"]
         except Exception:
             self.call_sources.append({"stage": stage, "source": "fallback_mock"})
-            if stage == "planner":
-                return self._mock_planner(context)
-            return self._mock_responder(context)
+            return self._mock(stage, context)
+
+    def _mock(self, stage, context):
+        if stage == "planner":
+            return self._mock_planner(context)
+        if stage == "evolution_reflection":
+            return self._mock_evolution_reflection(context)
+        return self._mock_responder(context)
 
     def _mock_planner(self, context):
         message = context.get("message", "")
-        lower = message.lower()
         planner = {
             "intent": "日常聊天",
             "emotion": "neutral",
@@ -60,19 +62,19 @@ class LLMClient:
             "tool_call": {"name": "none", "arguments": {}},
         }
 
-        if any(text in message for text in ["不想动", "难受", "累", "废了", "焦虑", "开摆"]):
+        if any(text in message for text in ["不想", "难受", "累", "废了", "焦虑", "摆烂", "压力"]):
             planner.update({"intent": "情绪陪伴", "emotion": "sad", "skills_used": ["persona_skill", "comfort_skill"]})
         elif any(text in message for text in ["你好", "你是谁", "介绍"]):
             planner.update({"intent": "自我介绍", "emotion": "happy"})
 
         if "记住" in message:
-            content = message.split("记住", 1)[-1].strip(" ：:。")
+            content = message.split("记住", 1)[-1].strip(" ：。")
             planner["memory_action"] = "write"
             planner["memory_to_write"] = {"content": content or message, "category": "project", "importance": 4}
         elif any(text in message for text in ["还记得", "记得我", "我最近"]):
             planner["memory_action"] = "read"
             planner["memory_query"] = message
-        elif any(text in message for text in ["删除记忆", "忘掉"]):
+        elif any(text in message for text in ["删除记忆", "忘掉", "忘记"]):
             planner["memory_action"] = "delete"
             planner["memory_delete_query"] = message
 
@@ -120,18 +122,18 @@ class LLMClient:
                 items = result.get("items", [])
                 reply = "当前待办：" + ("、".join(item["content"] for item in items) if items else "暂时是空的。")
         elif memory_action == "write":
-            reply = "记住了，这条我先收进长期记忆。之后你问起来，我会把它捞出来。"
+            reply = "记住了，这条我先收进长期记忆。之后你问起时，我会把它拿出来参考。"
         elif memory_action == "read":
             memories = memory_result.get("items", [])
             if memories:
                 reply = "我记得，你最近在做：" + "；".join(item["content"] for item in memories[:3])
             else:
-                reply = "我这边暂时没捞到相关记忆。你可以再告诉我一次，我这次认真存档。"
+                reply = "我这边暂时没找到相关记忆。你可以再告诉我一次，我这次认真存档。"
         elif "你是谁" in message or "你好" in message:
-            reply = "我是 LunaClaw，屏幕里的常驻嘉宾。主要业务是陪你聊天、接住碎碎念，顺手把生活里的小麻烦拆成能处理的几块。"
+            reply = "我是 LunaClaw，网页里的常驻陪伴 Agent。主要业务是陪你聊天、接住碎碎念，顺手把生活里的小麻烦拆成能处理的几块。"
             emotion = "happy"
         elif emotion == "sad":
-            reply = "懂了，今日状态：灵魂在线，行动离线。先别给自己下狠判决，我们只做一个最小动作，比如把要做的东西打开，先不要求立刻起飞。"
+            reply = "懂了，今天的状态像是压力顶上来了。先别给自己下判决，我们只做一个最小动作：打开材料，定一个 10 分钟计时器，先推进第一小步。"
         else:
             reply = "收到。LunaClaw 在线接住这条消息了。你可以继续说，我会尽量把它拆成能处理的小块。"
 
@@ -142,6 +144,54 @@ class LLMClient:
                 "tool_used": tool_name,
                 "skills_used": planner.get("skills_used", ["persona_skill", "chat_skill"]),
                 "memory_action": memory_action,
+            },
+            ensure_ascii=False,
+        )
+
+    def _mock_evolution_reflection(self, context):
+        message = context.get("message", "")
+        reply = context.get("assistant_reply", "")
+        if any(text in message for text in ["压力", "摆烂", "不想学", "拖延", "焦虑"]):
+            return json.dumps(
+                {
+                    "events": [
+                        {
+                            "type": "strategy_observed",
+                            "summary": "用户在学习压力场景下适合先共情，再拆一个 10 分钟小动作。",
+                            "target_type": "skill",
+                        }
+                    ],
+                    "preference_updates": {"planning_style": "先拆 10 分钟小动作"},
+                    "memory_updates": [
+                        {
+                            "content": "用户在学习压力下更适合先共情，再拆一个 10 分钟小动作",
+                            "category": "interaction_style",
+                            "importance": 0.8,
+                        }
+                    ],
+                    "scenario": "学习压力",
+                    "strategy_summary": "先共情，再拆成一个 10 分钟小动作",
+                    "skill_candidate": {
+                        "name": "study_pressure_micro_step",
+                        "description": "用户学习压力较大时，先共情再给一个 10 分钟小动作。",
+                        "trigger_examples": ["不想学了", "压力好大", "想摆烂"],
+                        "instructions": ["先承认压力", "只给一个可以立刻开始的小动作"],
+                    },
+                    "confidence": 0.9,
+                    "reason": "用户表达学习压力，回复采用了小步推进策略。",
+                },
+                ensure_ascii=False,
+            )
+        return json.dumps(
+            {
+                "events": [],
+                "preference_updates": {},
+                "memory_updates": [],
+                "scenario": "其他",
+                "strategy_summary": "",
+                "skill_candidate": {},
+                "confidence": 0.2,
+                "reason": "本轮没有稳定可沉淀的偏好或策略。",
             },
             ensure_ascii=False,
         )

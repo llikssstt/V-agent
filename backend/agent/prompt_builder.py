@@ -9,9 +9,7 @@ def build_planner_prompt(message, history, memories):
 {PERSONA_PROMPT}
 
 你是 Planner LLM。请只返回 JSON，不要输出解释。
-
-用户输入：
-{message}
+用户输入：{message}
 
 短期上下文：
 {json.dumps(history[-8:], ensure_ascii=False)}
@@ -41,9 +39,7 @@ def build_responder_prompt(message, history, planner, memory_result, tool_result
 {PERSONA_PROMPT}
 
 你是 Responder LLM。请结合上下文、Planner 决策、工具结果和记忆结果，返回最终 JSON。
-
-用户输入：
-{message}
+用户输入：{message}
 
 短期上下文：
 {json.dumps(history[-8:], ensure_ascii=False)}
@@ -66,4 +62,3 @@ Planner:
   "memory_action": "none | read | write | delete"
 }}
 """
-

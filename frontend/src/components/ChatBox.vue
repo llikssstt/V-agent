@@ -3,7 +3,7 @@
     <header>
       <div>
         <h1>LunaClaw 陪伴 Agent</h1>
-        <p>两阶段 LLM 决策、记忆、工具调用与 emotion 驱动展示</p>
+        <p>两阶段 LLM 决策、语义记忆、工具调用与可解释自我优化</p>
       </div>
     </header>
     <MessageList :messages="messages" :loading="loading" />

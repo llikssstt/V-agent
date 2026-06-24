@@ -1,4 +1,5 @@
 from pathlib import Path
+import uuid
 
 import pytest
 from fastapi.testclient import TestClient
@@ -26,7 +27,7 @@ class FakeEmbedder:
 
 
 def tmp_store():
-    path = Path(__file__).resolve().parents[2] / ".pytest_tmp" / "memory_rag"
+    path = Path(__file__).resolve().parents[2] / ".pytest_tmp" / "memory_rag" / uuid.uuid4().hex
     path.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -38,7 +39,8 @@ def test_memory_router_detects_crud_intents():
     assert route_memory_intent("忘记我最近在做的项目")["memory_intent"] == "delete"
 
 
-def test_semantic_retriever_matches_related_meaning_without_keyword_overlap(tmp_path):
+def test_semantic_retriever_matches_related_meaning_without_keyword_overlap():
+    tmp_path = tmp_store()
     core = MemoryCore(tmp_path, embedder=FakeEmbedder())
     project = core.write_memory(
         content="用户正在准备自然语言处理课程报告",
@@ -59,7 +61,8 @@ def test_semantic_retriever_matches_related_meaning_without_keyword_overlap(tmp_
     assert result["memories"][0]["score"] > 0
 
 
-def test_memory_core_updates_soft_deletes_and_logs(tmp_path):
+def test_memory_core_updates_soft_deletes_and_logs():
+    tmp_path = tmp_store()
     core = MemoryCore(tmp_path, embedder=FakeEmbedder())
     memory = core.write_memory("用户正在做课程问答 Agent", "project", 0.8, "user_explicit")
 
@@ -74,7 +77,8 @@ def test_memory_core_updates_soft_deletes_and_logs(tmp_path):
     assert [entry["operation"] for entry in logs][-2:] == ["update", "delete"]
 
 
-def test_sensitive_memory_is_filtered_and_logged(tmp_path):
+def test_sensitive_memory_is_filtered_and_logged():
+    tmp_path = tmp_store()
     core = MemoryCore(tmp_path, embedder=FakeEmbedder())
 
     with pytest.raises(ValueError):
@@ -84,7 +88,8 @@ def test_sensitive_memory_is_filtered_and_logged(tmp_path):
     assert core.list_logs()[-1]["result"] == "skipped"
 
 
-def test_conversation_memory_is_searchable(tmp_path):
+def test_conversation_memory_is_searchable():
+    tmp_path = tmp_store()
     core = MemoryCore(tmp_path, embedder=FakeEmbedder())
     core.save_conversation_turn("s1", "user", "我之前问过 Hermes Agent 的记忆机制")
     core.save_conversation_turn("s1", "assistant", "你问的是 Memory Providers。")
@@ -95,7 +100,8 @@ def test_conversation_memory_is_searchable(tmp_path):
     assert "Hermes" in result["conversation_hits"][0]["content"]
 
 
-def test_memory_prompt_builder_limits_and_formats_context(tmp_path):
+def test_memory_prompt_builder_limits_and_formats_context():
+    tmp_path = tmp_store()
     core = MemoryCore(tmp_path, embedder=FakeEmbedder())
     core.write_memory("用户正在准备 NLP 课程报告", "project", 0.9, "user_explicit")
     retrieved = MemoryRetriever(core).retrieve("报告怎么安排？")
@@ -133,7 +139,8 @@ def test_memory_api_crud_and_search():
     assert isinstance(logs.json(), list)
 
 
-def test_agent_core_returns_retrieved_memories_and_saves_sqlite_history(tmp_path):
+def test_agent_core_returns_retrieved_memories_and_saves_sqlite_history():
+    tmp_path = tmp_store()
     core = MemoryCore(tmp_path, embedder=FakeEmbedder())
     core.write_memory("用户正在准备自然语言处理课程报告", "project", 0.9, "user_explicit")
     agent = AgentCore(memory_core=core)

@@ -6,6 +6,7 @@ from typing import Optional
 from agent.agent_core import AgentCore
 from agent.memory_core import MemoryCore
 from agent.memory import MemoryStore
+from agent.self_evolution import SelfEvolutionCore
 from tools.todo_tool import TodoStore
 
 
@@ -98,6 +99,26 @@ def search_memory(query: str, top_k: int = 5):
 @app.get("/memory/logs")
 def memory_logs(limit: int = 100):
     return MemoryCore().list_logs(limit=limit)
+
+
+@app.get("/evolution/logs")
+def evolution_logs(limit: int = 100):
+    return SelfEvolutionCore().list_logs(limit=limit)
+
+
+@app.get("/evolution/skills")
+def evolution_skills():
+    return SelfEvolutionCore().list_skills()
+
+
+@app.post("/evolution/rollback/{operation_id}")
+def rollback_evolution(operation_id: str):
+    try:
+        return SelfEvolutionCore().rollback(operation_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="evolution operation not found")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @app.get("/todos")

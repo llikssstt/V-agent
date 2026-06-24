@@ -131,6 +131,31 @@ C:\Users\Likssstt\Documents\Playground\course_rag_system\data\models\bge-small-z
 
 聊天接口 `/chat` 会自动保存历史对话、检索相关记忆，并返回 `retrieved_memories` 供前端展示。
 
+## Self-Evolution 模块
+
+项目现在包含可解释的 Self-Evolution 机制。这里的“自我进化”不是自我意识，而是每轮对话后的结构化反思、偏好学习、策略沉淀和可回滚日志。
+
+运行时文件：
+
+```text
+backend/storage/evolution_log.jsonl
+backend/storage/evolution_state.json
+backend/generated_skills/*.md
+```
+
+这些文件是运行时产物，默认不提交到 Git。核心行为：
+
+- `/chat` 回复后执行 `evolution_reflection` 反思阶段。
+- 达到阈值后自动生成并启用 Skill。
+- 返回 `evolution_events`、`active_skills`、`evolution_summary` 供前端展示。
+- 右侧 Self-Evolution 面板展示日志、已启用 Skill，并支持回滚。
+
+主要接口：
+
+- `GET /evolution/logs`
+- `GET /evolution/skills`
+- `POST /evolution/rollback/{operation_id}`
+
 ## API 接口
 
 ### GET `/health`
