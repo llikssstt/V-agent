@@ -9,6 +9,7 @@ from agent.llm_client import LLMClient
 from agent.memory import MemoryStore
 from main import app
 from tools.calculator_tool import calculate
+from tools.registry import get_tool_names
 from tools.study_plan_tool import generate_study_plan
 from tools.todo_tool import TodoStore
 
@@ -55,7 +56,7 @@ def test_chat_mock_returns_required_fields():
     assert {"reply", "emotion", "tool_used", "skills_used", "memory_action", "retrieved_memories", "evolution_events", "active_skills", "evolution_summary"}.issubset(data)
     assert data["reply"]
     assert data["emotion"] in {"neutral", "happy", "sad", "thinking", "surprised", "serious"}
-    assert data["tool_used"] in {"none", "time", "calculator", "todo", "study_plan"}
+    assert data["tool_used"] in {"none", *get_tool_names()}
     assert data["memory_action"] in {"none", "read", "write", "delete"}
     assert isinstance(data["skills_used"], list)
     assert isinstance(data["retrieved_memories"], list)

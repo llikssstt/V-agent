@@ -54,6 +54,27 @@ def test_web_fetch_rejects_non_http_url():
     assert result["error"]["code"] == "invalid_url"
 
 
+def test_web_fetch_returns_page_text(monkeypatch):
+    class FakeResponse:
+        text = "<html><head><title>Example Page</title></head><body><script>bad()</script><h1>Hello</h1><p>Readable text.</p></body></html>"
+
+        def raise_for_status(self):
+            return None
+
+    def fake_get(url, headers=None, timeout=None):
+        return FakeResponse()
+
+    monkeypatch.setattr("tools.web_tools.requests.get", fake_get)
+
+    result = execute_tool({"name": "web_fetch", "arguments": {"url": "https://example.test/page", "max_chars": 500}})
+
+    assert result["ok"] is True
+    assert result["tool"] == "web_fetch"
+    assert result["result"]["title"] == "Example Page"
+    assert "Readable text." in result["result"]["content"]
+    assert "bad()" not in result["result"]["content"]
+
+
 def test_new_tool_names_are_not_filtered_by_parser():
     assert normalize_tool("web_search") == "web_search"
     assert normalize_tool("web_fetch") == "web_fetch"
@@ -107,6 +128,34 @@ trigger_examples:
 
     assert [skill["name"] for skill in matched] == ["web_research_skill"]
     assert registry.match("我压力好大")[0]["skill_id"] == "skill_pressure"
+
+
+def test_skill_registry_loads_nested_skill_md_directories():
+    tmp_path = local_tmp_path()
+    static_dir = tmp_path / "skills"
+    generated_dir = tmp_path / "generated_skills"
+    nested = static_dir / "nature_skill"
+    nested.mkdir(parents=True)
+    generated_dir.mkdir()
+    (nested / "SKILL.md").write_text(
+        """---
+name: nature_skill
+triggers:
+  - forest
+---
+
+# Nature Skill
+
+Use this when the user asks about forest observations.
+""",
+        encoding="utf-8",
+    )
+    registry = SkillRegistry(static_dir=static_dir, generated_dir=generated_dir)
+
+    matched = registry.match("please help with forest observations")
+
+    assert matched[0]["name"] == "nature_skill"
+    assert matched[0]["path"].endswith("SKILL.md")
 
 
 def test_chat_mock_still_returns_required_fields_for_general_agent():

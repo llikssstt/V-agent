@@ -100,7 +100,7 @@ class AgentCore:
                 "tool_call": tool_call,
                 "tool_result": {"ok": True, "tool": "none", "result": None},
             }
-            if tool_call.get("name") == "none" or planner.get("final_ready"):
+            if tool_call.get("name") == "none":
                 tool_trace.append(trace_entry)
                 break
 
@@ -108,6 +108,8 @@ class AgentCore:
             trace_entry["tool_result"] = tool_result
             tool_trace.append(trace_entry)
             if not tool_result.get("ok", False):
+                break
+            if planner.get("final_ready"):
                 break
 
         planner = planner or {}

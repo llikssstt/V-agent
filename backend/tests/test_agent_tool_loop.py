@@ -187,6 +187,31 @@ def test_tool_loop_does_not_exceed_max_steps():
     assert all(item["tool_call"]["name"] == "calculator" for item in response["tool_trace"])
 
 
+def test_final_ready_does_not_skip_non_none_tool_call():
+    tmp_path = local_tmp_path()
+    llm = ScriptedLLM(
+        [
+            {
+                "intent": "calculate",
+                "emotion": "thinking",
+                "skills_used": ["persona_skill"],
+                "memory_action": "none",
+                "tool_call": {"name": "calculator", "arguments": {"expression": "2 + 5"}},
+                "final_ready": True,
+                "reason": "tool result should be enough after execution",
+            }
+        ]
+    )
+    agent = make_agent(tmp_path, llm)
+
+    response = agent.chat("calculate final ready", session_id="loop-final-ready-tool")
+
+    assert len(response["tool_trace"]) == 1
+    assert response["tool_used"] == "calculator"
+    assert response["tool_trace"][0]["tool_result"]["tool"] == "calculator"
+    assert response["tool_trace"][0]["tool_result"]["result"]["result"] == 7
+
+
 def test_responder_receives_complete_tool_trace():
     tmp_path = local_tmp_path()
     llm = ScriptedLLM(

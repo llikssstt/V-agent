@@ -16,7 +16,7 @@ class SkillRegistry:
         for directory in [self.static_dir, self.generated_dir]:
             if not directory.exists():
                 continue
-            for path in sorted(directory.glob("*.md")):
+            for path in sorted(directory.rglob("*.md")):
                 skill = self._load_skill(path)
                 if skill:
                     skills.append(skill)
