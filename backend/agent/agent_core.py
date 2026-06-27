@@ -28,6 +28,7 @@ class AgentCore:
         skill_registry=None,
         skills_dir=None,
         generated_skills_dir=None,
+        max_steps=4,
     ):
         self.llm = llm_client or LLMClient()
         self.memory = memory_store or MemoryStore()
@@ -35,6 +36,10 @@ class AgentCore:
         self.memory_writer = MemoryWriter(self.memory_core)
         self.evolution_core = evolution_core or SelfEvolutionCore(llm_client=self.llm, memory_core=self.memory_core)
         self.skill_registry = skill_registry or SkillRegistry(static_dir=skills_dir, generated_dir=generated_skills_dir)
+        try:
+            self.max_steps = max(1, min(int(max_steps or 4), 8))
+        except (TypeError, ValueError):
+            self.max_steps = 4
         self.conversations_path = Path(conversations_path)
         self.conversations_path.parent.mkdir(parents=True, exist_ok=True)
         if not self.conversations_path.exists():
@@ -62,17 +67,51 @@ class AgentCore:
         rag_result = self.memory_core.retriever.retrieve(clean_message) if memory_route["need_retrieve"] else {"memories": [], "profile": self.memory_core.read_user_profile(), "conversation_hits": []}
         memory_context = build_memory_context(rag_result)
 
-        planner_prompt = build_planner_prompt(clean_message, history, memories)
-        if memory_context:
-            planner_prompt += "\n\n" + memory_context
-        if skill_context:
-            planner_prompt += "\n\n" + skill_context
-        planner = parse_planner(self.llm.complete_json(planner_prompt, "planner", {"message": clean_message, "history": history, "memories": memories, "active_skills": active_skills}))
+        tool_trace = []
+        memory_result = {"ok": True, "action": "none"}
+        planner = None
+        for step in range(1, self.max_steps + 1):
+            planner_prompt = build_planner_prompt(clean_message, history, memories, tool_trace)
+            if memory_context:
+                planner_prompt += "\n\n" + memory_context
+            if skill_context:
+                planner_prompt += "\n\n" + skill_context
+            planner = parse_planner(
+                self.llm.complete_json(
+                    planner_prompt,
+                    "planner",
+                    {
+                        "message": clean_message,
+                        "history": history,
+                        "memories": memories,
+                        "active_skills": active_skills,
+                        "tool_trace": tool_trace,
+                    },
+                )
+            )
 
-        memory_result = self._execute_memory(planner, memory_route, clean_message)
-        tool_result = execute_tool(planner.get("tool_call"))
+            if step == 1:
+                memory_result = self._execute_memory(planner, memory_route, clean_message)
 
-        responder_prompt = build_responder_prompt(clean_message, history, planner, memory_result, tool_result)
+            tool_call = planner.get("tool_call") or {"name": "none", "arguments": {}}
+            trace_entry = {
+                "step": step,
+                "planner": planner,
+                "tool_call": tool_call,
+                "tool_result": {"ok": True, "tool": "none", "result": None},
+            }
+            if tool_call.get("name") == "none" or planner.get("final_ready"):
+                tool_trace.append(trace_entry)
+                break
+
+            tool_result = execute_tool(tool_call)
+            trace_entry["tool_result"] = tool_result
+            tool_trace.append(trace_entry)
+            if not tool_result.get("ok", False):
+                break
+
+        planner = planner or {}
+        responder_prompt = build_responder_prompt(clean_message, history, planner, memory_result, tool_trace)
         if memory_context:
             responder_prompt += "\n\n请优先参考以下已检索记忆，但不要编造未提供的信息：\n" + memory_context
         if skill_context:
@@ -86,7 +125,7 @@ class AgentCore:
                     "history": history,
                     "planner": planner,
                     "memory_result": memory_result,
-                    "tool_result": tool_result,
+                    "tool_trace": tool_trace,
                     "active_skills": active_skills,
                 },
             )
@@ -101,6 +140,9 @@ class AgentCore:
         response["evolution_summary"] = evolution.get("evolution_summary", "")
         response["active_skills"] = active_skills or evolution.get("active_skills", [])
         response["evolution_count"] = len(response["evolution_events"])
+        response["tool_trace"] = tool_trace
+        last_tool = self._last_tool_used(tool_trace)
+        response["tool_used"] = last_tool or response.get("tool_used", "none")
         return response
 
     def _execute_memory(self, planner, memory_route=None, message=""):
@@ -159,3 +201,10 @@ class AgentCore:
             seen.add(key)
             result.append(skill)
         return result
+
+    def _last_tool_used(self, tool_trace):
+        for entry in reversed(tool_trace or []):
+            name = ((entry.get("tool_call") or {}).get("name") or "none")
+            if name != "none":
+                return name
+        return "none"

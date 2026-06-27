@@ -21,6 +21,8 @@ DEFAULT_PLANNER = {
     "memory_to_write": {"content": "", "category": "user_profile", "importance": 1},
     "memory_delete_query": "",
     "tool_call": {"name": "none", "arguments": {}},
+    "final_ready": False,
+    "reason": "",
 }
 
 
@@ -52,6 +54,8 @@ def parse_planner(value):
         data["skills_used"] = ["persona_skill"]
     if not isinstance(data.get("memory_to_write"), dict):
         data["memory_to_write"] = DEFAULT_PLANNER["memory_to_write"]
+    data["final_ready"] = bool(data.get("final_ready", False))
+    data["reason"] = str(data.get("reason") or "")
     return data
 
 

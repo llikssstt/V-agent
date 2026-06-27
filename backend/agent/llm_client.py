@@ -60,7 +60,17 @@ class LLMClient:
             "memory_to_write": {"content": "", "category": "user_profile", "importance": 1},
             "memory_delete_query": "",
             "tool_call": {"name": "none", "arguments": {}},
+            "final_ready": True,
+            "reason": "普通聊天不需要工具",
         }
+        tool_trace = context.get("tool_trace") or []
+        if tool_trace:
+            planner["intent"] = "基于工具结果作答"
+            planner["emotion"] = "thinking"
+            planner["tool_call"] = {"name": "none", "arguments": {}}
+            planner["final_ready"] = True
+            planner["reason"] = "已有工具结果足够交给 Responder 综合回答"
+            return json.dumps(planner, ensure_ascii=False)
 
         if any(text in message for text in ["不想", "难受", "累", "废了", "焦虑", "摆烂", "压力"]):
             planner.update({"intent": "情绪陪伴", "emotion": "sad", "skills_used": ["persona_skill", "comfort_skill"]})
@@ -82,22 +92,32 @@ class LLMClient:
             planner["tool_call"] = {"name": "web_search", "arguments": {"query": message, "max_results": 5}}
             planner["intent"] = "联网搜索最新信息"
             planner["emotion"] = "thinking"
+            planner["final_ready"] = False
+            planner["reason"] = "问题涉及最新信息，需要先搜索"
         elif any(text in message for text in ["几点", "时间", "日期"]):
             planner["tool_call"] = {"name": "time", "arguments": {}}
             planner["intent"] = "查询时间"
             planner["emotion"] = "thinking"
+            planner["final_ready"] = False
+            planner["reason"] = "需要调用时间工具"
         elif self._extract_expression(message):
             planner["tool_call"] = {"name": "calculator", "arguments": {"expression": self._extract_expression(message)}}
             planner["intent"] = "计算"
             planner["emotion"] = "thinking"
+            planner["final_ready"] = False
+            planner["reason"] = "需要调用计算器"
         elif any(text in message for text in ["待办", "todo", "任务清单"]):
             action = "add" if any(text in message for text in ["添加", "加一个", "记到待办"]) else "list"
             planner["tool_call"] = {"name": "todo", "arguments": {"action": action, "content": message}}
             planner["intent"] = "待办管理"
+            planner["final_ready"] = False
+            planner["reason"] = "需要调用待办工具"
         elif any(text in message for text in ["安排", "计划", "两小时", "2小时", "学习"]):
             planner["tool_call"] = {"name": "study_plan", "arguments": {"goal": message, "duration": "2小时" if "两" in message or "2" in message else "今晚"}}
             planner["intent"] = "生成计划"
             planner["emotion"] = "thinking"
+            planner["final_ready"] = False
+            planner["reason"] = "需要调用学习计划工具"
 
         return json.dumps(planner, ensure_ascii=False)
 
@@ -105,9 +125,10 @@ class LLMClient:
         message = context.get("message", "")
         planner = context.get("planner", {})
         memory_result = context.get("memory_result", {})
-        tool_result = context.get("tool_result", {})
+        tool_trace = context.get("tool_trace") or []
+        tool_result = self._last_tool_result(tool_trace) or context.get("tool_result", {})
         emotion = planner.get("emotion", "neutral")
-        tool_name = (planner.get("tool_call") or {}).get("name", "none")
+        tool_name = (tool_result or {}).get("tool") or (planner.get("tool_call") or {}).get("name", "none")
         memory_action = planner.get("memory_action", "none")
 
         if tool_name == "study_plan" and tool_result.get("result", {}).get("ok"):
@@ -166,6 +187,13 @@ class LLMClient:
             },
             ensure_ascii=False,
         )
+
+    def _last_tool_result(self, tool_trace):
+        for entry in reversed(tool_trace or []):
+            result = entry.get("tool_result") or {}
+            if result.get("tool") and result.get("tool") != "none":
+                return result
+        return None
 
     def _mock_evolution_reflection(self, context):
         message = context.get("message", "")
