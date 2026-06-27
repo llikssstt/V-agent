@@ -78,7 +78,11 @@ class LLMClient:
             planner["memory_action"] = "delete"
             planner["memory_delete_query"] = message
 
-        if any(text in message for text in ["几点", "时间", "日期"]):
+        if any(text.lower() in message.lower() for text in ["最新", "新闻", "github", "论文", "价格", "版本", "政策", "法规", "标准"]):
+            planner["tool_call"] = {"name": "web_search", "arguments": {"query": message, "max_results": 5}}
+            planner["intent"] = "联网搜索最新信息"
+            planner["emotion"] = "thinking"
+        elif any(text in message for text in ["几点", "时间", "日期"]):
             planner["tool_call"] = {"name": "time", "arguments": {}}
             planner["intent"] = "查询时间"
             planner["emotion"] = "thinking"
@@ -121,6 +125,21 @@ class LLMClient:
             else:
                 items = result.get("items", [])
                 reply = "当前待办：" + ("、".join(item["content"] for item in items) if items else "暂时是空的。")
+        elif tool_name == "web_search":
+            result = tool_result.get("result", {})
+            if tool_result.get("ok") and result.get("results"):
+                first = result["results"][0]
+                reply = f"我查到的第一条结果是：{first.get('title')}。链接：{first.get('url')}。摘要：{first.get('snippet')}"
+            else:
+                error = tool_result.get("error") or {}
+                reply = f"我需要联网查询这类最新信息，但当前搜索工具不可用：{error.get('message', '未知错误')}。"
+        elif tool_name == "web_fetch":
+            result = tool_result.get("result", {})
+            if tool_result.get("ok"):
+                reply = f"我读取到网页《{result.get('title') or result.get('url')}》的正文摘要：{result.get('content', '')[:300]}"
+            else:
+                error = tool_result.get("error") or {}
+                reply = f"网页读取失败：{error.get('message', '未知错误')}。"
         elif memory_action == "write":
             reply = "记住了，这条我先收进长期记忆。之后你问起时，我会把它拿出来参考。"
         elif memory_action == "read":

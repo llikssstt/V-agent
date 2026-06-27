@@ -90,6 +90,15 @@ $env:LLM_MODEL="gpt-4o-mini"
 - `LLM_API_KEY`
 - `LLM_BASE_URL`
 - `LLM_MODEL`
+- `SEARCH_PROVIDER`：可选，`tavily` 或 `brave`，默认 `tavily`
+- `SEARCH_API_KEY`：可选，联网搜索 API Key
+- `SEARCH_BASE_URL`：可选，自定义搜索服务地址
+
+联网工具说明：
+
+- `web_search` 用于搜索最新信息，例如新闻、GitHub 版本、论文、价格、政策等。
+- `web_fetch` 用于读取指定网页正文。
+- 如果没有配置 `SEARCH_API_KEY`，搜索工具会返回结构化错误，不会让后端崩溃；Responder 会说明当前无法获取最新信息。
 
 ## Mock 模式说明
 
@@ -102,8 +111,22 @@ $env:LLM_MODEL="gpt-4o-mini"
 - 安全计算器
 - 待办工具
 - 学习计划工具
+- 联网搜索工具的结构化错误返回
 
 真实 API 配置应写入 `backend/.env`，不要写入 `.env.example`。`.env.example` 只保留空模板。
+
+## Tool 与 Skill 注册表
+
+工具系统现在通过 `backend/tools/registry.py` 统一注册，`AVAILABLE_TOOLS` 会从注册表动态生成。新增工具时只需要注册 `ToolSpec`，并提供 handler。
+
+Skill 会从两个目录加载：
+
+```text
+backend/skills/*.md
+backend/generated_skills/*.md
+```
+
+`backend/skills` 存放项目内置 Skill；`backend/generated_skills` 是 Self-Evolution 运行时生成内容，默认不提交到 Git。Skill frontmatter 中可以配置 `triggers` 或 `trigger_examples`，命中后会注入 Planner/Responder prompt。
 
 ## Memory RAG 模块
 

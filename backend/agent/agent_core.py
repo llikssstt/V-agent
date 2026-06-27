@@ -10,6 +10,7 @@ from agent.memory_writer import MemoryWriter
 from agent.prompt_builder import build_planner_prompt, build_responder_prompt
 from agent.response_parser import parse_planner, parse_responder
 from agent.self_evolution import SelfEvolutionCore
+from agent.skill_registry import SkillRegistry
 from tools.tool_executor import execute_tool
 
 
@@ -17,12 +18,23 @@ CONVERSATIONS_PATH = Path(__file__).resolve().parents[1] / "storage" / "conversa
 
 
 class AgentCore:
-    def __init__(self, llm_client=None, memory_store=None, conversations_path=CONVERSATIONS_PATH, memory_core=None, evolution_core=None):
+    def __init__(
+        self,
+        llm_client=None,
+        memory_store=None,
+        conversations_path=CONVERSATIONS_PATH,
+        memory_core=None,
+        evolution_core=None,
+        skill_registry=None,
+        skills_dir=None,
+        generated_skills_dir=None,
+    ):
         self.llm = llm_client or LLMClient()
         self.memory = memory_store or MemoryStore()
         self.memory_core = memory_core or MemoryCore()
         self.memory_writer = MemoryWriter(self.memory_core)
         self.evolution_core = evolution_core or SelfEvolutionCore(llm_client=self.llm, memory_core=self.memory_core)
+        self.skill_registry = skill_registry or SkillRegistry(static_dir=skills_dir, generated_dir=generated_skills_dir)
         self.conversations_path = Path(conversations_path)
         self.conversations_path.parent.mkdir(parents=True, exist_ok=True)
         if not self.conversations_path.exists():
@@ -30,8 +42,17 @@ class AgentCore:
 
     def chat(self, message, session_id="default"):
         clean_message = str(message or "").strip()
-        active_skills = self.evolution_core.load_active_skills(clean_message)
-        skill_context = self.evolution_core.build_skill_context(active_skills)
+        active_skills = self._dedupe_skills(
+            self.skill_registry.match(clean_message) + self.evolution_core.load_active_skills(clean_message)
+        )
+        skill_context = "\n\n".join(
+            part
+            for part in [
+                self.skill_registry.build_context(active_skills),
+                self.evolution_core.build_skill_context([skill for skill in active_skills if skill.get("evidence_count")]),
+            ]
+            if part
+        )
 
         self.memory_core.save_conversation_turn(session_id, "user", clean_message)
         history = self._load_history(session_id)
@@ -127,3 +148,14 @@ class AgentCore:
         data = self._read_conversations()
         data[session_id] = history
         self._write_conversations(data)
+
+    def _dedupe_skills(self, skills):
+        seen = set()
+        result = []
+        for skill in skills:
+            key = skill.get("skill_id") or skill.get("name") or skill.get("path")
+            if key in seen:
+                continue
+            seen.add(key)
+            result.append(skill)
+        return result
