@@ -38,7 +38,16 @@ class SkillRegistry:
             return ""
         lines = ["【匹配到的 Skill】"]
         for skill in skills[:5]:
-            lines.append(f"* {skill.get('name') or skill.get('skill_id')}：{skill.get('description') or skill.get('summary') or ''}")
+            lines.append(f"## {skill.get('name') or skill.get('skill_id')}")
+            if skill.get("description"):
+                lines.append(f"Description: {skill['description']}")
+            triggers = skill.get("triggers") or []
+            if triggers:
+                lines.append("Triggers: " + ", ".join(triggers[:8]))
+            instructions = skill.get("instructions") or skill.get("summary") or ""
+            if instructions:
+                lines.append("Instructions:")
+                lines.append(instructions)
         return "\n".join(lines)
 
     def _load_skill(self, path):
@@ -61,6 +70,7 @@ class SkillRegistry:
             "trigger_examples": trigger_examples,
             "path": str(path),
             "summary": self._summary(body),
+            "instructions": self._instructions(body),
         }
 
     def _split_frontmatter(self, text):
@@ -105,3 +115,16 @@ class SkillRegistry:
             if line and not line.startswith("#"):
                 return line[:160]
         return ""
+
+    def _instructions(self, body):
+        items = self._extract_inline_list(body, "Instructions")
+        if items:
+            return "\n".join(f"- {item}" for item in items[:8])
+        lines = []
+        for line in body.splitlines():
+            stripped = line.strip()
+            if stripped and not stripped.startswith("#"):
+                lines.append(stripped)
+            if len(" ".join(lines)) >= 400:
+                break
+        return "\n".join(lines)[:600]

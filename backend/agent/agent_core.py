@@ -1,3 +1,4 @@
+import copy
 import json
 from pathlib import Path
 
@@ -85,7 +86,7 @@ class AgentCore:
                         "history": history,
                         "memories": memories,
                         "active_skills": active_skills,
-                        "tool_trace": tool_trace,
+                        "tool_trace": copy.deepcopy(tool_trace),
                     },
                 )
             )
@@ -143,6 +144,7 @@ class AgentCore:
         response["active_skills"] = active_skills or evolution.get("active_skills", [])
         response["evolution_count"] = len(response["evolution_events"])
         response["tool_trace"] = tool_trace
+        response["sources"] = self._extract_sources(tool_trace)
         last_tool = self._last_tool_used(tool_trace)
         response["tool_used"] = last_tool or response.get("tool_used", "none")
         return response
@@ -210,3 +212,41 @@ class AgentCore:
             if name != "none":
                 return name
         return "none"
+
+    def _extract_sources(self, tool_trace):
+        sources = []
+        seen_urls = set()
+        for entry in tool_trace or []:
+            result = (entry.get("tool_result") or {}).get("result") or {}
+            tool = (entry.get("tool_result") or {}).get("tool")
+            if tool == "web_search":
+                for item in result.get("results", []) or []:
+                    source = self._normalize_source(item, default_source=item.get("source") or "web_search")
+                    if source and source["url"] not in seen_urls:
+                        seen_urls.add(source["url"])
+                        sources.append(source)
+            elif tool == "web_fetch":
+                source = self._normalize_source(
+                    {
+                        "title": result.get("title", ""),
+                        "url": result.get("url", ""),
+                        "snippet": result.get("content", ""),
+                        "source": "web_fetch",
+                    },
+                    default_source="web_fetch",
+                )
+                if source and source["url"] not in seen_urls:
+                    seen_urls.add(source["url"])
+                    sources.append(source)
+        return sources
+
+    def _normalize_source(self, item, default_source=""):
+        url = str(item.get("url") or "").strip()
+        if not url:
+            return None
+        return {
+            "title": str(item.get("title") or url).strip(),
+            "url": url,
+            "snippet": str(item.get("snippet") or item.get("content") or "").strip()[:500],
+            "source": str(item.get("source") or default_source or "").strip(),
+        }
