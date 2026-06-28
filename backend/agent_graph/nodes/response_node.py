@@ -3,6 +3,7 @@ import json
 from agent.llm_client import LLMClient
 from agent.response_parser import parse_responder
 from agent_graph.nodes.common import flow_step
+from agent_graph.prompt_loader import load_prompt
 
 
 def response_node(state, llm_client=None):
@@ -66,12 +67,7 @@ def _mock_response(state):
 
 
 def _response_prompt(state):
-    return (
-        "You are V-Agent's Response Agent. Produce strict JSON with reply, emotion, tool_used, skills_used, memory_action. "
-        "Use only the provided memory, skills, skill resources, tool trace, sources, and agent flow. "
-        "Do not claim self-awareness.\n\n"
-        + json.dumps(_response_context(state), ensure_ascii=False)
-    )
+    return load_prompt("graph_response.md") + "\n\nContext:\n" + json.dumps(_response_context(state), ensure_ascii=False)
 
 
 def _response_context(state):
