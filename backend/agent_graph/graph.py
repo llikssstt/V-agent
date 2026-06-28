@@ -88,7 +88,7 @@ class GraphCore:
             "reply": state.get("final_reply", ""),
             "emotion": state.get("emotion", "thinking"),
             "tool_used": execution_tool,
-            "skills_used": [],
+            "skills_used": state.get("skills_used", []),
             "memory_action": (state.get("memory_result") or {}).get("memory_action", "none"),
             "retrieved_memories": (state.get("memory_result") or {}).get("retrieved_memories", []),
             "evolution_events": [],

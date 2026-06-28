@@ -15,7 +15,10 @@ def skill_node(state, skill_registry=None, evolution_core=None):
     registry_matches = registry.match(message)
     evolution_matches = evolution.load_active_skills(message)
     active_skills = _dedupe_skills(registry_matches + evolution_matches)
-    skill_context = registry.build_context([skill for skill in active_skills if skill.get("path")]) if active_skills else ""
+    registry_context = registry.build_context([skill for skill in active_skills if skill.get("path")]) if active_skills else ""
+    evolved_skills = [skill for skill in active_skills if skill.get("evidence_count")]
+    evolution_context = evolution.build_skill_context(evolved_skills) if hasattr(evolution, "build_skill_context") else ""
+    skill_context = "\n\n".join(part for part in [registry_context, evolution_context] if part)
     skill_trace = []
     registry_ids = {_skill_key(skill) for skill in registry_matches}
     for skill in active_skills:
@@ -32,6 +35,7 @@ def skill_node(state, skill_registry=None, evolution_core=None):
         )
 
     state["active_skills"] = active_skills
+    state["skills_used"] = [_skill_label(skill) for skill in active_skills]
     state["skill_context"] = skill_context
     state["skill_trace"] = skill_trace
     state.setdefault("agent_flow", []).append(
@@ -53,4 +57,8 @@ def _dedupe_skills(skills):
 
 
 def _skill_key(skill):
+    return skill.get("skill_id") or skill.get("name") or skill.get("path") or str(skill)
+
+
+def _skill_label(skill):
     return skill.get("skill_id") or skill.get("name") or skill.get("path") or str(skill)

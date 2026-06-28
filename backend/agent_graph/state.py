@@ -12,6 +12,7 @@ class VAgentState(TypedDict, total=False):
     memory_result: Dict[str, Any]
     memory_context: str
     active_skills: List[Dict[str, Any]]
+    skills_used: List[str]
     skill_context: str
     skill_trace: List[Dict[str, Any]]
     skill_resource_results: List[Dict[str, Any]]
