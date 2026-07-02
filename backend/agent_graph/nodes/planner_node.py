@@ -64,20 +64,27 @@ def _normalize_llm_plan(parsed):
     for index, step in enumerate(steps[:12], 1):
         if isinstance(step, str):
             title = step
+            step_tool_intent = {"name": "none", "arguments": {}}
         elif isinstance(step, dict):
             title = step.get("title") or step.get("description") or f"Step {index}"
+            step_tool_intent = _normalize_tool_intent(step.get("tool_intent"))
         else:
             title = f"Step {index}"
-        normalized_steps.append({"title": str(title)[:240]})
+            step_tool_intent = {"name": "none", "arguments": {}}
+        if route != "execute_tool":
+            step_tool_intent = {"name": "none", "arguments": {}}
+        elif not _is_allowed_tool_intent(step_tool_intent):
+            return _result(
+                task_title,
+                "tool_search",
+                f"Planner selected unavailable tool: {step_tool_intent.get('name')}",
+                _strip_step_tools(normalized_steps) or [{"title": str(title)[:240], "tool_intent": {"name": "none", "arguments": {}}}],
+                {"name": "none", "arguments": {}},
+            )
+        normalized_steps.append({"title": str(title)[:240], "tool_intent": step_tool_intent})
     if not normalized_steps:
         return None
-    tool_intent = parsed.get("tool_intent") or {"name": "none", "arguments": {}}
-    if not isinstance(tool_intent, dict):
-        tool_intent = {"name": "none", "arguments": {}}
-    tool_intent = {
-        "name": str(tool_intent.get("name") or "none"),
-        "arguments": tool_intent.get("arguments") if isinstance(tool_intent.get("arguments"), dict) else {},
-    }
+    tool_intent = _first_step_tool_intent(normalized_steps) or _normalize_tool_intent(parsed.get("tool_intent"))
     if route != "execute_tool":
         tool_intent = {"name": "none", "arguments": {}}
     elif not _is_allowed_tool_intent(tool_intent):
@@ -107,9 +114,10 @@ def _planner_prompt():
         '  "task_title": "short task title",\n'
         '  "route": "response | execute_tool | tool_search | multimodal",\n'
         '  "reason": "why this route and plan were chosen",\n'
-        '  "steps": [{"title": "durable step title"}],\n'
-        '  "tool_intent": {"name": "tool name or none", "arguments": {}}\n'
+        '  "steps": [{"title": "durable step title", "tool_intent": {"name": "tool name or none", "arguments": {}}}],\n'
+        '  "tool_intent": {"name": "first non-none step tool name or none", "arguments": {}}\n'
         "}\n"
+        "Every step must include its own tool_intent. Use name=none for reasoning or response-only steps. "
         "Use route=execute_tool only when a tool should run now. Use route=tool_search only for explicit tool discovery/install needs. "
         "Use route=multimodal for image attachments. Otherwise use response. "
         f"Available built-in tools: {json.dumps(AVAILABLE_TOOLS, ensure_ascii=False)}\n"
@@ -131,6 +139,30 @@ def _is_allowed_tool_intent(tool_intent):
             if spec.get("name") == function_name:
                 return True
     return False
+
+
+def _normalize_tool_intent(tool_intent):
+    if not isinstance(tool_intent, dict):
+        return {"name": "none", "arguments": {}}
+    return {
+        "name": str(tool_intent.get("name") or "none"),
+        "arguments": tool_intent.get("arguments") if isinstance(tool_intent.get("arguments"), dict) else {},
+    }
+
+
+def _first_step_tool_intent(steps):
+    for step in steps or []:
+        tool_intent = _normalize_tool_intent(step.get("tool_intent"))
+        if tool_intent.get("name") != "none":
+            return tool_intent
+    return None
+
+
+def _strip_step_tools(steps):
+    return [
+        {"title": step.get("title") or f"Step {index}", "tool_intent": {"name": "none", "arguments": {}}}
+        for index, step in enumerate(steps or [], 1)
+    ]
 
 
 def _installed_tool_schemas():
@@ -161,30 +193,45 @@ def _rule_plan(message, state):
     lower = str(message or "").lower()
     expression = _extract_expression(message)
     if expression:
+        tool_intent = {"name": "calculator", "arguments": {"expression": expression}}
         return _result(
             "Calculate expression",
             "execute_tool",
             "calculation request",
-            [{"title": "Parse expression"}, {"title": "Run calculator"}, {"title": "Explain result"}],
-            {"name": "calculator", "arguments": {"expression": expression}},
+            [
+                {"title": "Parse expression", "tool_intent": {"name": "none", "arguments": {}}},
+                {"title": "Run calculator", "tool_intent": tool_intent},
+                {"title": "Explain result", "tool_intent": {"name": "none", "arguments": {}}},
+            ],
+            tool_intent,
         )
     if "web_reader" in lower:
         url_match = re.search(r"https?://\S+", message)
+        tool_intent = {"name": "web_reader.fetch_page", "arguments": {"url": url_match.group(0).rstrip(".,)") if url_match else ""}}
         return _result(
             "Read web page with web_reader",
             "execute_tool",
             "explicit installed web_reader request",
-            [{"title": "Extract URL"}, {"title": "Run web_reader"}, {"title": "Summarize result"}],
-            {"name": "web_reader.fetch_page", "arguments": {"url": url_match.group(0).rstrip(".,)") if url_match else ""}},
+            [
+                {"title": "Extract URL", "tool_intent": {"name": "none", "arguments": {}}},
+                {"title": "Run web_reader", "tool_intent": tool_intent},
+                {"title": "Summarize result", "tool_intent": {"name": "none", "arguments": {}}},
+            ],
+            tool_intent,
         )
     if re.search(r"https?://", message):
         url_match = re.search(r"https?://\S+", message)
+        tool_intent = {"name": "web_fetch", "arguments": {"url": url_match.group(0).rstrip(".,)") if url_match else ""}}
         return _result(
             "Read web page",
             "execute_tool",
             "URL/tool execution request",
-            [{"title": "Extract URL"}, {"title": "Run web fetch tool"}, {"title": "Summarize result"}],
-            {"name": "web_fetch", "arguments": {"url": url_match.group(0).rstrip(".,)") if url_match else ""}},
+            [
+                {"title": "Extract URL", "tool_intent": {"name": "none", "arguments": {}}},
+                {"title": "Run web fetch tool", "tool_intent": tool_intent},
+                {"title": "Summarize result", "tool_intent": {"name": "none", "arguments": {}}},
+            ],
+            tool_intent,
         )
     if state.get("route") == "tool_search":
         return _result("Find installable tool", "tool_search", "tool discovery request", [{"title": "Search tool market"}, {"title": "Review permissions"}])

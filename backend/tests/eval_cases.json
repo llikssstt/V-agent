@@ -1,0 +1,53 @@
+[
+  {
+    "id": "calculator_step_tool",
+    "message": "What is 2 + 3?",
+    "expected_route": "execute_tool",
+    "expected_tool": "calculator",
+    "expect_skill": false,
+    "expect_resource": false,
+    "expect_memory": false,
+    "expect_task": true,
+    "expect_trace": true
+  },
+  {
+    "id": "code_review_skill",
+    "message": "请帮我做一次 code review，重点找潜在 bug 和缺失测试。",
+    "expected_route": "response",
+    "expected_tool": "none",
+    "expect_skill": true,
+    "expect_resource": false,
+    "expect_memory": false,
+    "expect_task": true,
+    "expect_trace": true
+  },
+  {
+    "id": "memory_retrieval",
+    "message": "还记得我的 eval 偏好吗？",
+    "expected_route": "response",
+    "expected_tool": "none",
+    "expect_skill": false,
+    "expect_resource": false,
+    "expect_memory": true,
+    "expect_task": true,
+    "expect_trace": true,
+    "setup_memories": [
+      {
+        "content": "用户的 eval 偏好是使用真实 API 并记录指标报告。",
+        "category": "preference",
+        "importance": 0.9
+      }
+    ]
+  },
+  {
+    "id": "skill_resource_reader",
+    "message": "根据 web research skill 的资源说明，帮我规划一次网页资料调研。",
+    "expected_route": "response",
+    "expected_tool": "none",
+    "expect_skill": true,
+    "expect_resource": true,
+    "expect_memory": false,
+    "expect_task": true,
+    "expect_trace": true
+  }
+]

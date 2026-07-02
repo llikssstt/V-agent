@@ -71,8 +71,14 @@ def test_graphcore_uses_llm_planner_json_for_task_and_tool_intent(monkeypatch):
                     "task_title": "Research current Python release",
                     "route": "execute_tool",
                     "reason": "Need fresh release information",
-                    "steps": [{"title": "Search current Python release"}, {"title": "Summarize result"}],
-                    "tool_intent": {"name": "web_search", "arguments": {"query": "latest Python release", "max_results": 3}},
+                    "steps": [
+                        {
+                            "title": "Search current Python release",
+                            "tool_intent": {"name": "web_search", "arguments": {"query": "latest Python release", "max_results": 3}},
+                        },
+                        {"title": "Summarize result", "tool_intent": {"name": "none", "arguments": {}}},
+                    ],
+                    "tool_intent": {"name": "none", "arguments": {}},
                 }
             )
 
@@ -96,7 +102,29 @@ def test_graphcore_uses_llm_planner_json_for_task_and_tool_intent(monkeypatch):
     assert result["planner_result"]["tool_intent"]["name"] == "web_search"
     assert result["task"]["title"] == "Research current Python release"
     assert result["task"]["steps"][0]["title"] == "Search current Python release"
+    assert result["task"]["steps"][0]["tool_intent"]["name"] == "web_search"
+    assert result["task"]["steps"][1]["tool_intent"]["name"] == "none"
     assert any(entry["tool_call"]["name"] == "web_search" for entry in result["tool_trace"])
+
+
+def test_task_runtime_persists_step_level_tool_intent(monkeypatch):
+    tmp_path = local_tmp_path()
+    task_runtime = patch_task_store(monkeypatch, tmp_path)
+    runtime = task_runtime.TaskRuntime()
+    task = runtime.create_task("Step tools", session_id="step-tools")
+
+    runtime.set_plan(
+        task["task_id"],
+        [
+            {"title": "Search", "tool_intent": {"name": "web_search", "arguments": {"query": "python"}}},
+            {"title": "Calculate", "tool_intent": {"name": "calculator", "arguments": {"expression": "1 + 2"}}},
+        ],
+        {"name": "none", "arguments": {}},
+    )
+
+    loaded = runtime.get_task(task["task_id"])
+    assert loaded["steps"][0]["tool_intent"] == {"name": "web_search", "arguments": {"query": "python"}}
+    assert loaded["steps"][1]["tool_intent"] == {"name": "calculator", "arguments": {"expression": "1 + 2"}}
 
 
 def test_llm_planner_unknown_tool_routes_to_tool_search(monkeypatch):
@@ -225,7 +253,7 @@ def test_task_runtime_can_mark_next_pending_step(monkeypatch):
     assert loaded["logs"][-1]["event"] == "step_status"
 
 
-def test_run_next_task_step_api_executes_tool_intent_once(monkeypatch):
+def test_run_next_task_step_api_executes_step_tool_intent_once(monkeypatch):
     tmp_path = local_tmp_path()
     task_runtime = patch_task_store(monkeypatch, tmp_path)
     calls = []
@@ -239,8 +267,8 @@ def test_run_next_task_step_api_executes_tool_intent_once(monkeypatch):
     task = runtime.create_task("Calculate", session_id="task-run-next")
     runtime.set_plan(
         task["task_id"],
-        [{"title": "Run calculator"}],
-        {"name": "calculator", "arguments": {"expression": "2 + 3"}},
+        [{"title": "Run calculator", "tool_intent": {"name": "calculator", "arguments": {"expression": "2 + 3"}}}],
+        {"name": "web_search", "arguments": {"query": "fallback should not run"}},
     )
     client = TestClient(app)
     run_response = client.post(f"/tasks/{task['task_id']}/run-next")
@@ -248,8 +276,70 @@ def test_run_next_task_step_api_executes_tool_intent_once(monkeypatch):
     assert run_response.status_code == 200
     task = run_response.json()["task"]
     assert calls == [{"name": "calculator", "arguments": {"expression": "2 + 3"}}]
-    assert any(artifact["type"] == "tool_result" for artifact in task["artifacts"])
+    artifact = task["artifacts"][0]
+    assert artifact["type"] == "tool_result"
+    assert artifact["payload"]["step_id"] == "step_1"
+    assert artifact["payload"]["step_title"] == "Run calculator"
+    assert artifact["payload"]["step_tool_intent"] == {"name": "calculator", "arguments": {"expression": "2 + 3"}}
+    assert artifact["payload"]["tool_result"]["result"] == {"value": 5}
     assert any(step["status"] == "completed" for step in task["steps"])
+
+
+def test_run_task_step_falls_back_to_task_tool_intent_for_legacy_steps(monkeypatch):
+    tmp_path = local_tmp_path()
+    task_runtime = patch_task_store(monkeypatch, tmp_path)
+    calls = []
+
+    def fake_execute(tool_call):
+        calls.append(tool_call)
+        return {"ok": True, "tool": tool_call["name"], "result": {"value": 5}}
+
+    monkeypatch.setattr(tool_registry, "execute_tool", fake_execute)
+    runtime = task_runtime.TaskRuntime()
+    task = runtime.create_task("Legacy task", session_id="task-legacy")
+    runtime.set_plan(
+        task["task_id"],
+        [{"title": "Legacy step"}],
+        {"name": "calculator", "arguments": {"expression": "2 + 3"}},
+    )
+    task = runtime.get_task(task["task_id"])
+    task["steps"][0].pop("tool_intent", None)
+    task_runtime.TASK_STORE_PATH.write_text(json.dumps({"tasks": {task["task_id"]: task}}, ensure_ascii=False), encoding="utf-8")
+
+    client = TestClient(app)
+    run_response = client.post(f"/tasks/{task['task_id']}/run-next")
+
+    assert run_response.status_code == 200
+    assert calls == [{"name": "calculator", "arguments": {"expression": "2 + 3"}}]
+
+
+def test_run_task_step_does_not_fallback_when_step_tool_intent_is_explicit_none(monkeypatch):
+    tmp_path = local_tmp_path()
+    task_runtime = patch_task_store(monkeypatch, tmp_path)
+    calls = []
+
+    def fake_execute(tool_call):
+        calls.append(tool_call)
+        return {"ok": True, "tool": tool_call["name"], "result": {}}
+
+    monkeypatch.setattr(tool_registry, "execute_tool", fake_execute)
+    runtime = task_runtime.TaskRuntime()
+    task = runtime.create_task("Mixed task", session_id="task-explicit-none")
+    runtime.set_plan(
+        task["task_id"],
+        [{"title": "Think first", "tool_intent": {"name": "none", "arguments": {}}}],
+        {"name": "calculator", "arguments": {"expression": "2 + 3"}},
+    )
+
+    client = TestClient(app)
+    run_response = client.post(f"/tasks/{task['task_id']}/run-next")
+
+    assert run_response.status_code == 200
+    payload = run_response.json()
+    assert payload["ok"] is True
+    assert calls == []
+    assert payload["task"]["steps"][0]["status"] == "completed"
+    assert payload["task"]["artifacts"][0]["payload"]["tool_result"]["tool"] == "none"
 
 
 def test_run_task_until_idle_api_advances_multiple_steps(monkeypatch):
@@ -266,8 +356,12 @@ def test_run_task_until_idle_api_advances_multiple_steps(monkeypatch):
     task = runtime.create_task("Loop task", session_id="task-run-loop")
     runtime.set_plan(
         task["task_id"],
-        [{"title": "Step one"}, {"title": "Step two"}, {"title": "Step three"}],
-        {"name": "calculator", "arguments": {"expression": "2 + 3"}},
+        [
+            {"title": "Step one", "tool_intent": {"name": "calculator", "arguments": {"expression": "1 + 1"}}},
+            {"title": "Step two", "tool_intent": {"name": "calculator", "arguments": {"expression": "2 + 2"}}},
+            {"title": "Step three", "tool_intent": {"name": "calculator", "arguments": {"expression": "3 + 3"}}},
+        ],
+        {"name": "none", "arguments": {}},
     )
     client = TestClient(app)
 
@@ -276,7 +370,10 @@ def test_run_task_until_idle_api_advances_multiple_steps(monkeypatch):
     assert response.status_code == 200
     payload = response.json()
     assert payload["iterations"] == 2
-    assert len(calls) == 2
+    assert calls == [
+        {"name": "calculator", "arguments": {"expression": "1 + 1"}},
+        {"name": "calculator", "arguments": {"expression": "2 + 2"}},
+    ]
     assert payload["task"]["steps"][0]["status"] == "completed"
     assert payload["task"]["steps"][1]["status"] == "completed"
     assert payload["task"]["steps"][2]["status"] == "pending"
@@ -297,7 +394,10 @@ def test_task_lifecycle_pause_resume_and_cancel_api(monkeypatch):
     task = runtime.create_task("Lifecycle task", session_id="task-lifecycle")
     runtime.set_plan(
         task["task_id"],
-        [{"title": "Step one"}, {"title": "Step two"}],
+        [
+            {"title": "Step one", "tool_intent": {"name": "calculator", "arguments": {"expression": "2 + 3"}}},
+            {"title": "Step two", "tool_intent": {"name": "calculator", "arguments": {"expression": "2 + 3"}}},
+        ],
         {"name": "calculator", "arguments": {"expression": "2 + 3"}},
     )
     client = TestClient(app)
@@ -342,7 +442,7 @@ def test_failed_step_can_be_retried_with_attempt_history(monkeypatch):
     task = runtime.create_task("Retry task", session_id="task-retry")
     runtime.set_plan(
         task["task_id"],
-        [{"title": "Run flaky calculator"}],
+        [{"title": "Run flaky calculator", "tool_intent": {"name": "calculator", "arguments": {"expression": "2 + 3"}}}],
         {"name": "calculator", "arguments": {"expression": "2 + 3"}},
     )
     client = TestClient(app)
@@ -385,13 +485,16 @@ def test_task_scheduler_tick_advances_runnable_tasks_only(monkeypatch):
     active = runtime.create_task("Active scheduled task", session_id="scheduler")
     runtime.set_plan(
         active["task_id"],
-        [{"title": "First active"}, {"title": "Second active"}],
+        [
+            {"title": "First active", "tool_intent": {"name": "calculator", "arguments": {"expression": "2 + 3"}}},
+            {"title": "Second active", "tool_intent": {"name": "calculator", "arguments": {"expression": "2 + 3"}}},
+        ],
         {"name": "calculator", "arguments": {"expression": "2 + 3"}},
     )
     paused = runtime.create_task("Paused scheduled task", session_id="scheduler")
     runtime.set_plan(
         paused["task_id"],
-        [{"title": "Paused step"}],
+        [{"title": "Paused step", "tool_intent": {"name": "calculator", "arguments": {"expression": "4 + 4"}}}],
         {"name": "calculator", "arguments": {"expression": "4 + 4"}},
     )
     runtime.pause_task(paused["task_id"])
@@ -433,7 +536,10 @@ def test_task_scheduler_background_worker_advances_tasks_without_manual_tick(mon
     task = runtime.create_task("Background scheduled task", session_id="scheduler-worker")
     runtime.set_plan(
         task["task_id"],
-        [{"title": "First background step"}, {"title": "Second background step"}],
+        [
+            {"title": "First background step", "tool_intent": {"name": "calculator", "arguments": {"expression": "2 + 3"}}},
+            {"title": "Second background step", "tool_intent": {"name": "calculator", "arguments": {"expression": "2 + 3"}}},
+        ],
         {"name": "calculator", "arguments": {"expression": "2 + 3"}},
     )
     client = TestClient(app)

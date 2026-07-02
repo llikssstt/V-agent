@@ -209,11 +209,16 @@ def _normalize_step(index, step):
     if isinstance(step, str):
         step = {"title": step}
     step = dict(step or {})
+    tool_intent = step.get("tool_intent") if isinstance(step.get("tool_intent"), dict) else {}
     return {
         "step_id": step.get("step_id") or f"step_{index}",
         "title": step.get("title") or f"Step {index}",
         "status": step.get("status") or "pending",
         "detail": step.get("detail", ""),
+        "tool_intent": {
+            "name": str(tool_intent.get("name") or "none"),
+            "arguments": tool_intent.get("arguments") if isinstance(tool_intent.get("arguments"), dict) else {},
+        },
         "attempts": int(step.get("attempts") or 0),
         "last_error": step.get("last_error", ""),
         "updated_at": step.get("updated_at") or now_iso(),

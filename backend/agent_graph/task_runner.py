@@ -12,9 +12,18 @@ def run_task_step(task_id):
         return {"ok": True, "task": task, "step": None, "result": None}
 
     runtime.update_step_status(task_id, step["step_id"], "in_progress", "running")
-    tool_intent = task.get("tool_intent") or {"name": "none", "arguments": {}}
-    result = run_tool_intent(tool_intent)
-    runtime.add_artifact(task_id, "tool_result", {"step_id": step["step_id"], "tool_intent": tool_intent, **result})
+    tool_intent = _step_tool_intent(step, task)
+    result = _execute_step_tool(tool_intent)
+    runtime.add_artifact(
+        task_id,
+        "tool_result",
+        {
+            "step_id": step["step_id"],
+            "step_title": step.get("title", ""),
+            "step_tool_intent": tool_intent,
+            "tool_result": result,
+        },
+    )
     task = runtime.update_step_status(
         task_id,
         step["step_id"],
@@ -46,3 +55,27 @@ def run_task_until_idle(task_id, max_steps=5):
         "results": iterations,
         "task": runtime.get_task(task_id),
     }
+
+
+def _step_tool_intent(step, task):
+    has_step_intent = isinstance(step, dict) and "tool_intent" in step
+    step_intent = step.get("tool_intent") if has_step_intent else None
+    if has_step_intent:
+        step_intent = step_intent if isinstance(step_intent, dict) else {}
+        return {
+            "name": str(step_intent.get("name") or "none"),
+            "arguments": step_intent.get("arguments") if isinstance(step_intent.get("arguments"), dict) else {},
+        }
+    task_intent = task.get("tool_intent") if isinstance(task, dict) else None
+    if isinstance(task_intent, dict):
+        return {
+            "name": str(task_intent.get("name") or "none"),
+            "arguments": task_intent.get("arguments") if isinstance(task_intent.get("arguments"), dict) else {},
+        }
+    return {"name": "none", "arguments": {}}
+
+
+def _execute_step_tool(tool_intent):
+    if (tool_intent or {}).get("name") in {None, "", "none"}:
+        return {"ok": True, "tool": "none", "result": {"message": "No tool required for this step"}}
+    return run_tool_intent(tool_intent)

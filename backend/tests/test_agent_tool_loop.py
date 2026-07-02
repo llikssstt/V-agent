@@ -5,7 +5,7 @@ from pathlib import Path
 from agent.agent_core import AgentCore
 from agent.llm_client import LLMClient
 from agent.memory import MemoryStore
-from agent.response_parser import parse_planner
+from agent.response_parser import parse_planner, parse_responder
 
 
 def local_tmp_path():
@@ -112,6 +112,20 @@ def test_parse_planner_defaults_missing_loop_fields():
 
     assert planner["final_ready"] is False
     assert planner["reason"] == ""
+
+
+def test_parse_responder_normalizes_non_string_tool_used():
+    response = parse_responder(
+        {
+            "reply": "ok",
+            "emotion": "thinking",
+            "tool_used": [],
+            "skills_used": [],
+            "memory_action": "none",
+        }
+    )
+
+    assert response["tool_used"] == "none"
 
 
 def test_plain_chat_stops_without_tool_and_returns_tool_trace():

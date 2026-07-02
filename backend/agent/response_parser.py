@@ -66,7 +66,8 @@ def parse_responder(value):
         return FALLBACK_RESPONSE.copy()
     data["reply"] = str(data.get("reply") or FALLBACK_RESPONSE["reply"]).strip()
     data["emotion"] = normalize_emotion(data.get("emotion"))
-    data["tool_used"] = normalize_tool(data.get("tool_used"))
+    tool_used = data.get("tool_used")
+    data["tool_used"] = normalize_tool(tool_used if isinstance(tool_used, str) else "none")
     data["memory_action"] = normalize_memory_action(data.get("memory_action"))
     if not isinstance(data.get("skills_used"), list):
         data["skills_used"] = ["persona_skill"]

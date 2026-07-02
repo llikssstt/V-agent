@@ -6,6 +6,8 @@ import requests
 
 from agent.env_loader import load_env_file
 
+CALL_SOURCES = []
+
 
 class LLMClient:
     def __init__(self):
@@ -21,26 +23,40 @@ class LLMClient:
 
     def complete_json(self, prompt, stage, context):
         if self.mock_mode:
-            self.call_sources.append({"stage": stage, "source": "mock"})
+            self._record_call(stage, "mock")
             return self._mock(stage, context)
         try:
+            user_content = prompt
+            if context is not None:
+                user_content = prompt + "\n\nRuntime context JSON:\n" + json.dumps(context, ensure_ascii=False)
             response = requests.post(
                 f"{self.base_url}/chat/completions",
                 headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"},
                 json={
                     "model": self.model,
-                    "messages": [{"role": "user", "content": prompt}],
+                    "messages": [{"role": "user", "content": user_content}],
                     "temperature": 0.6,
                     "response_format": {"type": "json_object"},
                 },
                 timeout=30,
             )
             response.raise_for_status()
-            self.call_sources.append({"stage": stage, "source": "real_api"})
+            self._record_call(stage, "real_api")
             return response.json()["choices"][0]["message"]["content"]
-        except Exception:
-            self.call_sources.append({"stage": stage, "source": "fallback_mock"})
+        except Exception as exc:
+            if os.getenv("LLM_DISABLE_FALLBACK", "").strip().lower() in {"1", "true", "yes"}:
+                self._record_call(stage, "real_api_error", str(exc))
+                raise
+            self._record_call(stage, "fallback_mock", str(exc))
             return self._mock(stage, context)
+
+    def _record_call(self, stage, source, error=None):
+        item = {"stage": stage, "source": source}
+        self.call_sources.append(item)
+        global_item = dict(item)
+        if error:
+            global_item["error"] = error[:500]
+        CALL_SOURCES.append(global_item)
 
     def _mock(self, stage, context):
         if stage == "planner":

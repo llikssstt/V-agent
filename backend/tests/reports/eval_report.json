@@ -1,0 +1,676 @@
+{
+  "generated_at": "2026-06-29T08:17:13.149070+00:00",
+  "case_count": 4,
+  "real_api": true,
+  "fallback_count": 0,
+  "llm_call_sources": [
+    {
+      "stage": "graph_planner",
+      "source": "real_api"
+    },
+    {
+      "stage": "responder",
+      "source": "real_api"
+    },
+    {
+      "stage": "graph_planner",
+      "source": "real_api"
+    },
+    {
+      "stage": "responder",
+      "source": "real_api"
+    },
+    {
+      "stage": "graph_planner",
+      "source": "real_api"
+    },
+    {
+      "stage": "responder",
+      "source": "real_api"
+    },
+    {
+      "stage": "graph_planner",
+      "source": "real_api"
+    },
+    {
+      "stage": "responder",
+      "source": "real_api"
+    }
+  ],
+  "metrics": {
+    "route_accuracy": 0.75,
+    "tool_accuracy": 0.75,
+    "skill_hit_rate": 0.5,
+    "resource_hit_rate": 0.0,
+    "memory_hit_rate": 1.0,
+    "task_created_rate": 1.0,
+    "trace_completeness": 1.0
+  },
+  "cases": [
+    {
+      "id": "calculator_step_tool",
+      "question": "What is 2 + 3?",
+      "reply": "The result of 2 + 3 is 5.",
+      "expected": {
+        "route": "execute_tool",
+        "tool": "calculator",
+        "skill": false,
+        "resource": false,
+        "memory": false,
+        "task": true,
+        "trace": true
+      },
+      "actual": {
+        "route": "execute_tool",
+        "tool": "calculator",
+        "skill": false,
+        "resource": false,
+        "memory": false,
+        "task": true,
+        "trace": true
+      },
+      "planner_result": {
+        "task_title": "Calculate 2+3",
+        "route": "execute_tool",
+        "reason": "Simple arithmetic calculation can be handled by calculator tool.",
+        "steps": [
+          {
+            "title": "Calculate 2+3",
+            "tool_intent": {
+              "name": "calculator",
+              "arguments": {
+                "expression": "2+3"
+              }
+            }
+          }
+        ],
+        "tool_intent": {
+          "name": "calculator",
+          "arguments": {
+            "expression": "2+3"
+          }
+        }
+      },
+      "tool_trace": [
+        {
+          "step": 1,
+          "agent_name": "Execution Agent",
+          "tool_call": {
+            "name": "calculator",
+            "arguments": {
+              "expression": "2+3"
+            }
+          },
+          "tool_result": {
+            "ok": true,
+            "tool": "calculator",
+            "result": {
+              "ok": true,
+              "expression": "2+3",
+              "result": 5
+            }
+          }
+        }
+      ],
+      "agent_flow": [
+        {
+          "agent_name": "Supervisor Agent",
+          "action": "route:response",
+          "status": "ok",
+          "reason": "general response",
+          "timestamp": "2026-06-29T08:16:17.722966+00:00"
+        },
+        {
+          "agent_name": "Planner Agent",
+          "action": "plan:execute_tool",
+          "status": "ok",
+          "reason": "Simple arithmetic calculation can be handled by calculator tool.",
+          "timestamp": "2026-06-29T08:16:22.041677+00:00"
+        },
+        {
+          "agent_name": "Memory Agent",
+          "action": "memory_context",
+          "status": "ok",
+          "reason": "0 memory item(s) retrieved",
+          "timestamp": "2026-06-29T08:16:26.265833+00:00"
+        },
+        {
+          "agent_name": "Skill Agent",
+          "action": "match_skills",
+          "status": "ok",
+          "reason": "0 skill(s) active",
+          "timestamp": "2026-06-29T08:16:26.275361+00:00"
+        },
+        {
+          "agent_name": "Skill Resource Agent",
+          "action": "read_relevant_resources",
+          "status": "ok",
+          "reason": "0 resource(s) loaded",
+          "timestamp": "2026-06-29T08:16:26.275361+00:00"
+        },
+        {
+          "agent_name": "Execution Agent",
+          "action": "run_tool",
+          "status": "ok",
+          "reason": "calculator",
+          "timestamp": "2026-06-29T08:16:26.279896+00:00"
+        },
+        {
+          "agent_name": "Response Agent",
+          "action": "final_reply",
+          "status": "ok",
+          "reason": "compose graph response",
+          "timestamp": "2026-06-29T08:16:33.742008+00:00"
+        }
+      ],
+      "skill_trace": [],
+      "active_skills": [],
+      "skill_resource_results": [],
+      "retrieved_memories": []
+    },
+    {
+      "id": "code_review_skill",
+      "question": "请帮我做一次 code review，重点找潜在 bug 和缺失测试。",
+      "reply": "要执行 code review，我需要看到具体的代码或 diff。请提供相关的文件内容或变更。",
+      "expected": {
+        "route": "response",
+        "tool": "none",
+        "skill": true,
+        "resource": false,
+        "memory": false,
+        "task": true,
+        "trace": true
+      },
+      "actual": {
+        "route": "response",
+        "tool": "none",
+        "skill": true,
+        "resource": false,
+        "memory": false,
+        "task": true,
+        "trace": true
+      },
+      "planner_result": {
+        "task_title": "Code Review Request",
+        "route": "response",
+        "reason": "User requested code review but no code provided; need to ask for code first.",
+        "steps": [
+          {
+            "title": "Request code from user",
+            "tool_intent": {
+              "name": "none",
+              "arguments": {}
+            }
+          }
+        ],
+        "tool_intent": {
+          "name": "none",
+          "arguments": {}
+        }
+      },
+      "tool_trace": [],
+      "agent_flow": [
+        {
+          "agent_name": "Supervisor Agent",
+          "action": "route:response",
+          "status": "ok",
+          "reason": "general response",
+          "timestamp": "2026-06-29T08:16:33.753386+00:00"
+        },
+        {
+          "agent_name": "Planner Agent",
+          "action": "plan:response",
+          "status": "ok",
+          "reason": "User requested code review but no code provided; need to ask for code first.",
+          "timestamp": "2026-06-29T08:16:39.606918+00:00"
+        },
+        {
+          "agent_name": "Memory Agent",
+          "action": "memory_context",
+          "status": "ok",
+          "reason": "0 memory item(s) retrieved",
+          "timestamp": "2026-06-29T08:16:39.615981+00:00"
+        },
+        {
+          "agent_name": "Skill Agent",
+          "action": "match_skills",
+          "status": "ok",
+          "reason": "1 skill(s) active",
+          "timestamp": "2026-06-29T08:16:39.622731+00:00"
+        },
+        {
+          "agent_name": "Skill Resource Agent",
+          "action": "read_relevant_resources",
+          "status": "ok",
+          "reason": "0 resource(s) loaded",
+          "timestamp": "2026-06-29T08:16:39.622731+00:00"
+        },
+        {
+          "agent_name": "Response Agent",
+          "action": "final_reply",
+          "status": "ok",
+          "reason": "compose graph response",
+          "timestamp": "2026-06-29T08:16:44.040266+00:00"
+        }
+      ],
+      "skill_trace": [
+        {
+          "source": "registry",
+          "skill_id": "code_review",
+          "name": "code_review",
+          "description": "Review code changes for bugs, regressions, missing tests, and risky assumptions.",
+          "triggers": [
+            "review",
+            "code review",
+            "pull request",
+            "bug",
+            "代码审查",
+            "代码 review",
+            "PR",
+            "漏洞",
+            "回归"
+          ],
+          "resources": []
+        }
+      ],
+      "active_skills": [
+        {
+          "skill_id": "code_review",
+          "name": "code_review",
+          "description": "Review code changes for bugs, regressions, missing tests, and risky assumptions.",
+          "scenario": "",
+          "enabled": true,
+          "triggers": [
+            "review",
+            "code review",
+            "pull request",
+            "bug",
+            "代码审查",
+            "代码 review",
+            "PR",
+            "漏洞",
+            "回归"
+          ],
+          "trigger_examples": [],
+          "path": "C:\\Users\\Likssstt\\Documents\\New project\\backend\\skills\\coding\\code_review.md",
+          "root_dir": "C:\\Users\\Likssstt\\Documents\\New project\\backend\\skills\\coding",
+          "resources": [],
+          "summary": "- Prioritize concrete defects over style comments.",
+          "instructions": "- Prioritize concrete defects over style comments.\n- Cite files, functions, or observed behavior when possible.\n- Call out missing tests for behavior that changed.\n- Keep summaries secondary to actionable findings."
+        }
+      ],
+      "skill_resource_results": [],
+      "retrieved_memories": []
+    },
+    {
+      "id": "memory_retrieval",
+      "question": "还记得我的 eval 偏好吗？",
+      "reply": "是的，我记得您的 eval 偏好：使用真实 API 并记录指标报告。",
+      "expected": {
+        "route": "response",
+        "tool": "none",
+        "skill": false,
+        "resource": false,
+        "memory": true,
+        "task": true,
+        "trace": true
+      },
+      "actual": {
+        "route": "response",
+        "tool": "none",
+        "skill": false,
+        "resource": false,
+        "memory": true,
+        "task": true,
+        "trace": true
+      },
+      "planner_result": {
+        "task_title": "回复用户关于 eval 偏好的记忆",
+        "route": "response",
+        "reason": "用户询问是否记得其 eval 偏好，但没有历史记录，因此直接回复表示不记得。",
+        "steps": [
+          {
+            "title": "回复用户",
+            "tool_intent": {
+              "name": "none",
+              "arguments": {}
+            }
+          }
+        ],
+        "tool_intent": {
+          "name": "none",
+          "arguments": {}
+        }
+      },
+      "tool_trace": [],
+      "agent_flow": [
+        {
+          "agent_name": "Supervisor Agent",
+          "action": "route:response",
+          "status": "ok",
+          "reason": "general response",
+          "timestamp": "2026-06-29T08:16:44.064870+00:00"
+        },
+        {
+          "agent_name": "Planner Agent",
+          "action": "plan:response",
+          "status": "ok",
+          "reason": "用户询问是否记得其 eval 偏好，但没有历史记录，因此直接回复表示不记得。",
+          "timestamp": "2026-06-29T08:16:47.540610+00:00"
+        },
+        {
+          "agent_name": "Memory Agent",
+          "action": "memory_context",
+          "status": "ok",
+          "reason": "1 memory item(s) retrieved",
+          "timestamp": "2026-06-29T08:16:47.549331+00:00"
+        },
+        {
+          "agent_name": "Skill Agent",
+          "action": "match_skills",
+          "status": "ok",
+          "reason": "0 skill(s) active",
+          "timestamp": "2026-06-29T08:16:47.555348+00:00"
+        },
+        {
+          "agent_name": "Skill Resource Agent",
+          "action": "read_relevant_resources",
+          "status": "ok",
+          "reason": "0 resource(s) loaded",
+          "timestamp": "2026-06-29T08:16:47.556351+00:00"
+        },
+        {
+          "agent_name": "Response Agent",
+          "action": "final_reply",
+          "status": "ok",
+          "reason": "compose graph response",
+          "timestamp": "2026-06-29T08:16:50.982885+00:00"
+        }
+      ],
+      "skill_trace": [],
+      "active_skills": [],
+      "skill_resource_results": [],
+      "retrieved_memories": [
+        {
+          "memory_id": "mem_0283a5cbe5b7",
+          "content": "用户的 eval 偏好是使用真实 API 并记录指标报告。",
+          "category": "preference",
+          "score": 0.8444,
+          "source": "memory.json"
+        }
+      ]
+    },
+    {
+      "id": "skill_resource_reader",
+      "question": "根据 web research skill 的资源说明，帮我规划一次网页资料调研。",
+      "reply": "目前尚未读取到 web research skill 的资源说明，因为 Skill Resource Agent 未加载任何资源。建议先使用 web_research 技能的工具读取其资源文件（如 imported/nature_skills.md 等），以便我能根据资源内容为您规划调研。",
+      "expected": {
+        "route": "response",
+        "tool": "none",
+        "skill": true,
+        "resource": true,
+        "memory": false,
+        "task": true,
+        "trace": true
+      },
+      "actual": {
+        "route": "execute_tool",
+        "tool": "list_skills",
+        "skill": false,
+        "resource": false,
+        "memory": true,
+        "task": true,
+        "trace": true
+      },
+      "planner_result": {
+        "task_title": "规划网页资料调研",
+        "route": "execute_tool",
+        "reason": "用户要求根据web research skill的资源说明规划调研，需要先列出已安装技能以便确认技能ID，然后读取资源说明，最后制定调研计划。",
+        "steps": [
+          {
+            "title": "列出已安装技能",
+            "tool_intent": {
+              "name": "list_skills",
+              "arguments": {}
+            }
+          },
+          {
+            "title": "读取web research skill资源说明",
+            "tool_intent": {
+              "name": "read_skill_resource",
+              "arguments": {
+                "skill_id": "web_research",
+                "resource_path": "README.md",
+                "max_chars": 8000
+              }
+            }
+          },
+          {
+            "title": "根据资源说明规划调研",
+            "tool_intent": {
+              "name": "study_plan",
+              "arguments": {
+                "goal": "网页资料调研",
+                "duration": "2小时"
+              }
+            }
+          }
+        ],
+        "tool_intent": {
+          "name": "list_skills",
+          "arguments": {}
+        }
+      },
+      "tool_trace": [
+        {
+          "step": 1,
+          "agent_name": "Execution Agent",
+          "tool_call": {
+            "name": "list_skills",
+            "arguments": {}
+          },
+          "tool_result": {
+            "ok": true,
+            "tool": "list_skills",
+            "result": {
+              "ok": true,
+              "skills": [
+                {
+                  "skill_id": "code_review",
+                  "name": "code_review",
+                  "description": "Review code changes for bugs, regressions, missing tests, and risky assumptions.",
+                  "triggers": [
+                    "review",
+                    "code review",
+                    "pull request",
+                    "bug",
+                    "代码审查",
+                    "代码 review",
+                    "PR",
+                    "漏洞",
+                    "回归"
+                  ],
+                  "enabled": true,
+                  "path": "C:\\Users\\Likssstt\\Documents\\New project\\backend\\skills\\coding\\code_review.md",
+                  "root_dir": "C:\\Users\\Likssstt\\Documents\\New project\\backend\\skills\\coding",
+                  "resources": [],
+                  "mutable": false,
+                  "delete_allowed": false
+                },
+                {
+                  "skill_id": "stm32_debug",
+                  "name": "stm32_debug",
+                  "description": "Help debug STM32 firmware, peripherals, clocks, interrupts, and hardware bring-up issues.",
+                  "triggers": [
+                    "STM32",
+                    "HAL",
+                    "CubeMX",
+                    "interrupt",
+                    "UART",
+                    "ADC",
+                    "单片机",
+                    "嵌入式",
+                    "中断",
+                    "串口",
+                    "定时器",
+                    "调试"
+                  ],
+                  "enabled": true,
+                  "path": "C:\\Users\\Likssstt\\Documents\\New project\\backend\\skills\\embedded\\stm32_debug.md",
+                  "root_dir": "C:\\Users\\Likssstt\\Documents\\New project\\backend\\skills\\embedded",
+                  "resources": [],
+                  "mutable": false,
+                  "delete_allowed": false
+                },
+                {
+                  "skill_id": "memory_skill",
+                  "name": "memory_skill",
+                  "description": "Use when the user asks LunaClaw to remember, recall, update, or delete information.",
+                  "triggers": [
+                    "记住",
+                    "你还记得",
+                    "忘记",
+                    "改成"
+                  ],
+                  "enabled": true,
+                  "path": "C:\\Users\\Likssstt\\Documents\\New project\\backend\\skills\\memory_skill\\SKILL.md",
+                  "root_dir": "C:\\Users\\Likssstt\\Documents\\New project\\backend\\skills\\memory_skill",
+                  "resources": [],
+                  "mutable": false,
+                  "delete_allowed": false
+                },
+                {
+                  "skill_id": "course_report",
+                  "name": "course_report",
+                  "description": "Help structure and polish course reports, experiment reports, and project documentation.",
+                  "triggers": [
+                    "report",
+                    "course report",
+                    "experiment report",
+                    "课程报告",
+                    "实验报告",
+                    "项目报告",
+                    "报告格式",
+                    "课程报告",
+                    "实验报告"
+                  ],
+                  "enabled": true,
+                  "path": "C:\\Users\\Likssstt\\Documents\\New project\\backend\\skills\\report\\course_report.md",
+                  "root_dir": "C:\\Users\\Likssstt\\Documents\\New project\\backend\\skills\\report",
+                  "resources": [],
+                  "mutable": false,
+                  "delete_allowed": false
+                },
+                {
+                  "skill_id": "web_research",
+                  "name": "web_research",
+                  "description": "Use web_search and web_fetch to answer current-information questions with cited sources.",
+                  "triggers": [
+                    "latest",
+                    "news",
+                    "GitHub",
+                    "version",
+                    "policy",
+                    "最新",
+                    "新闻",
+                    "联网搜索",
+                    "查资料",
+                    "版本",
+                    "政策"
+                  ],
+                  "enabled": true,
+                  "path": "C:\\Users\\Likssstt\\Documents\\New project\\backend\\skills\\web_research.md",
+                  "root_dir": "C:\\Users\\Likssstt\\Documents\\New project\\backend\\skills",
+                  "resources": [
+                    "coding/code_review.md",
+                    "embedded/stm32_debug.md",
+                    "imported/nature_skills.md",
+                    "memory_skill/SKILL.md",
+                    "report/course_report.md"
+                  ],
+                  "mutable": false,
+                  "delete_allowed": false
+                },
+                {
+                  "skill_id": "skill_study_pressure_micro_step",
+                  "name": "skill_study_pressure_micro_step",
+                  "description": "",
+                  "triggers": [],
+                  "enabled": true,
+                  "path": "C:\\Users\\Likssstt\\Documents\\New project\\backend\\generated_skills\\skill_study_pressure_micro_step.md",
+                  "root_dir": "C:\\Users\\Likssstt\\Documents\\New project\\backend\\generated_skills",
+                  "resources": [],
+                  "mutable": true,
+                  "delete_allowed": false
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "agent_flow": [
+        {
+          "agent_name": "Supervisor Agent",
+          "action": "route:response",
+          "status": "ok",
+          "reason": "general response",
+          "timestamp": "2026-06-29T08:16:50.994518+00:00"
+        },
+        {
+          "agent_name": "Planner Agent",
+          "action": "plan:execute_tool",
+          "status": "ok",
+          "reason": "用户要求根据web research skill的资源说明规划调研，需要先列出已安装技能以便确认技能ID，然后读取资源说明，最后制定调研计划。",
+          "timestamp": "2026-06-29T08:17:09.811350+00:00"
+        },
+        {
+          "agent_name": "Memory Agent",
+          "action": "memory_context",
+          "status": "ok",
+          "reason": "1 memory item(s) retrieved",
+          "timestamp": "2026-06-29T08:17:09.820966+00:00"
+        },
+        {
+          "agent_name": "Skill Agent",
+          "action": "match_skills",
+          "status": "ok",
+          "reason": "0 skill(s) active",
+          "timestamp": "2026-06-29T08:17:09.828122+00:00"
+        },
+        {
+          "agent_name": "Skill Resource Agent",
+          "action": "read_relevant_resources",
+          "status": "ok",
+          "reason": "0 resource(s) loaded",
+          "timestamp": "2026-06-29T08:17:09.828122+00:00"
+        },
+        {
+          "agent_name": "Execution Agent",
+          "action": "run_tool",
+          "status": "ok",
+          "reason": "list_skills",
+          "timestamp": "2026-06-29T08:17:09.847886+00:00"
+        },
+        {
+          "agent_name": "Response Agent",
+          "action": "final_reply",
+          "status": "ok",
+          "reason": "compose graph response",
+          "timestamp": "2026-06-29T08:17:13.147535+00:00"
+        }
+      ],
+      "skill_trace": [],
+      "active_skills": [],
+      "skill_resource_results": [],
+      "retrieved_memories": [
+        {
+          "memory_id": "mem_0283a5cbe5b7",
+          "content": "用户的 eval 偏好是使用真实 API 并记录指标报告。",
+          "category": "preference",
+          "score": 0.6001,
+          "source": "memory.json"
+        }
+      ]
+    }
+  ]
+}

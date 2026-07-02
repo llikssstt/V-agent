@@ -24,6 +24,7 @@
           <li v-for="step in task.steps.slice(0, 4)" :key="step.step_id">
             <span>{{ step.status }}</span>
             <small>{{ step.title }}<template v-if="step.attempts"> - try {{ step.attempts }}</template></small>
+            <small class="tool-intent">tool: {{ toolIntentLabel(step.tool_intent) }}</small>
             <small v-if="step.last_error">{{ step.last_error }}</small>
             <button v-if="step.status === 'failed'" @click="$emit('retry-step', { task, step })">Retry</button>
           </li>
@@ -74,5 +75,14 @@ function canPause(task) {
 
 function isTerminal(task) {
   return ['completed', 'failed', 'cancelled'].includes(task.status)
+}
+
+function toolIntentLabel(toolIntent) {
+  const intent = toolIntent || { name: 'none', arguments: {} }
+  const name = intent.name || 'none'
+  const args = intent.arguments && Object.keys(intent.arguments).length
+    ? ` ${JSON.stringify(intent.arguments)}`
+    : ''
+  return `${name}${args}`
 }
 </script>
